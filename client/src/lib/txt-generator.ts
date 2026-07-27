@@ -3,6 +3,7 @@ interface PedidoRelatorio {
   cliente: string;
   sabor: string;
   tamanho: string;
+  quantidade: number;
   valor: number;
   status: string;
   itens: string;
@@ -41,7 +42,7 @@ export function gerarTXTRelatorio(dados: DadosRelatorio) {
   conteudo += "─".repeat(66) + "\n";
   
   dados.pedidos.forEach(p => {
-    conteudo += `${String(p.id).padEnd(5)} | ${p.cliente.substring(0, 20).padEnd(20)} | ${p.sabor.substring(0, 15).padEnd(15)} | ${p.status.substring(0, 12).padEnd(12)} | R$ ${p.valor.toFixed(2).padEnd(6)}\n`;
+    conteudo += `${String(p.id).padEnd(5)} | ${p.cliente.substring(0, 20).padEnd(20)} | ${p.sabor.substring(0, 15).padEnd(15)} | ${p.status.substring(0, 12).padEnd(12)} | ${p.quantidade ?? 1} copo(s) | R$ ${p.valor.toFixed(2).padEnd(6)}\n`;
   });
   
   conteudo += "═".repeat(66) + "\n\n";

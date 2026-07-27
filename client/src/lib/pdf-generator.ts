@@ -6,6 +6,7 @@ interface PedidoRelatorio {
   cliente: string;
   sabor: string;
   tamanho: string;
+  quantidade: number;
   valor: number;
   status: string;
   itens: string;
@@ -76,6 +77,7 @@ export function gerarPDFRelatorio(dados: DadosRelatorio) {
     p.cliente,
     p.sabor,
     `${p.tamanho}ml`,
+    `${p.quantidade ?? 1}`,
     p.itens || "-",
     p.status,
     `R$ ${p.valor.toFixed(2)}`,
@@ -83,7 +85,7 @@ export function gerarPDFRelatorio(dados: DadosRelatorio) {
 
   (doc as any).autoTable({
     startY: currentY + 5,
-    head: [["ID", "Cliente", "Sabor", "Tamanho", "Complementos", "Status", "Valor"]],
+    head: [["ID", "Cliente", "Sabor", "Tamanho", "Qtd.", "Complementos", "Status", "Valor"]],
     body: pedidosData,
     theme: "striped",
     headStyles: {
