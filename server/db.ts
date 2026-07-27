@@ -1,6 +1,6 @@
-import { eq, and, desc, gte, lt, isNull } from "drizzle-orm";
+import { eq, and, desc, gte, lt, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
+import { InsertUser, users, appUsers, InsertAppUser, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -87,6 +87,48 @@ export async function getUserByOpenId(openId: string) {
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
 
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getAppUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(appUsers).where(eq(appUsers.id, id)).limit(1))[0];
+}
+
+export async function getAppUserByUsername(username: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(appUsers).where(eq(appUsers.username, username.toLowerCase())).limit(1))[0];
+}
+
+export async function listAppUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: appUsers.id, username: appUsers.username, name: appUsers.name,
+    role: appUsers.role, active: appUsers.active, createdAt: appUsers.createdAt,
+  }).from(appUsers).orderBy(appUsers.name);
+}
+
+export async function createAppUser(data: InsertAppUser) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  await db.insert(appUsers).values({ ...data, username: data.username.toLowerCase() });
+  return getAppUserByUsername(data.username);
+}
+
+export async function updateAppUser(id: number, data: Partial<Pick<InsertAppUser, "name" | "passwordHash" | "role" | "active">>) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  await db.update(appUsers).set(data).where(eq(appUsers.id, id));
+  return getAppUserById(id);
+}
+
+export async function countAppUsers() {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db.select({ count: sql<number>`count(*)` }).from(appUsers);
+  return Number(result?.count ?? 0);
 }
 
 // ============ PEDIDOS QUERIES ============

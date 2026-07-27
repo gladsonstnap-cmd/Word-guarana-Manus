@@ -7,14 +7,17 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Historico from "./pages/Historico";
 import DetalhesFechamento from "./pages/DetalhesFechamento";
+import Login from "./pages/Login";
+import { useAuth } from "./_core/hooks/useAuth";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   return (
     <Switch>
       <Route path={"/"} component={Home} />
-      <Route path={"/historico"} component={Historico} />
-      <Route path={"/detalhes-fechamento"} component={DetalhesFechamento} />
+      <Route path={"/historico"}>{isAdmin ? <Historico /> : <Home />}</Route>
+      <Route path={"/detalhes-fechamento"}>{isAdmin ? <DetalhesFechamento /> : <Home />}</Route>
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
@@ -28,6 +31,10 @@ function Router() {
 // - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando...</div>;
+  if (!user) return <Login />;
+
   return (
     <ErrorBoundary>
       <ThemeProvider
