@@ -1,4 +1,4 @@
-import { eq, and, desc, gte, lte, isNull } from "drizzle-orm";
+import { eq, and, desc, gte, lt, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -276,14 +276,16 @@ export async function obterPedidosPorData(data: string): Promise<(Pedido & { ite
   }
 
   try {
-    // Converter data para timestamps do dia
+    // Usar intervalo semiaberto evita perder registros com milissegundos
+    // no fim do dia e impede incluir pedidos do dia seguinte.
     const startOfDay = new Date(`${data}T00:00:00`);
-    const endOfDay = new Date(`${data}T23:59:59`);
+    const startOfNextDay = new Date(startOfDay);
+    startOfNextDay.setDate(startOfNextDay.getDate() + 1);
 
     const allPedidos = await db.select().from(pedidos)
       .where(and(
         gte(pedidos.createdAt, startOfDay),
-        lte(pedidos.createdAt, endOfDay),
+        lt(pedidos.createdAt, startOfNextDay),
         isNull(pedidos.dataFechamento)
       ))
       .orderBy(desc(pedidos.createdAt));
@@ -313,16 +315,18 @@ export async function criarFechamentoCaixa(data: InsertFechamentoCaixa): Promise
   }
 
   try {
-    // Marcar todos os pedidos do dia como fechados
+    // Repetir exatamente o filtro usado no cálculo do fechamento.
     const dataStr = data.data;
     const startOfDay = new Date(`${dataStr}T00:00:00`);
-    const endOfDay = new Date(`${dataStr}T23:59:59`);
+    const startOfNextDay = new Date(startOfDay);
+    startOfNextDay.setDate(startOfNextDay.getDate() + 1);
 
     await db.update(pedidos)
       .set({ dataFechamento: dataStr })
       .where(and(
         gte(pedidos.createdAt, startOfDay),
-        lte(pedidos.createdAt, endOfDay)
+        lt(pedidos.createdAt, startOfNextDay),
+        isNull(pedidos.dataFechamento)
       ));
 
     const result = await db.insert(fechamentoCaixa).values(data);
