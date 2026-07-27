@@ -31,6 +31,7 @@ export const pedidos = mysqlTable("pedidos", {
   cliente: varchar("cliente", { length: 100 }).notNull(),
   tamanho: varchar("tamanho", { length: 10 }).notNull(),
   sabor: varchar("sabor", { length: 100 }).notNull(),
+  quantidade: int("quantidade").default(1).notNull(),
   valor: int("valor").notNull(),
   status: mysqlEnum("status", ["pendente", "em-preparo", "pronto", "entregue"]).default("pendente").notNull(),
   encerrado: int("encerrado").default(0).notNull(),

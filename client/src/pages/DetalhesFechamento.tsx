@@ -11,6 +11,7 @@ interface Pedido {
   cliente: string;
   sabor: string;
   tamanho: string;
+  quantidade: number;
   valor: number;
   status: string;
   itens: string[];

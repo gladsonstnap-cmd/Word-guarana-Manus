@@ -69,6 +69,7 @@ interface Pedido {
   cliente: string;
   tamanho: string;
   sabor: string;
+  quantidade: number;
   itens?: string[];
   valor: number;
   status: StatusPedido;
@@ -83,6 +84,7 @@ export default function Home() {
   const [cliente, setCliente] = useState("");
   const [tamanho, setTamanho] = useState("500");
   const [sabor, setSabor] = useState("Tradicional");
+  const [quantidade, setQuantidade] = useState(1);
   const [complementosSelecionados, setComplementosSelecionados] = useState<string[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [uploadingIds, setUploadingIds] = useState<number[]>([]);
@@ -139,6 +141,7 @@ export default function Home() {
         cliente,
         tamanho,
         sabor,
+        quantidade,
         valor,
         itens: complementosSelecionados,
       });
@@ -149,6 +152,7 @@ export default function Home() {
         setComplementosSelecionados([]);
         setSabor("Tradicional");
         setTamanho("500");
+        setQuantidade(1);
         toast.success(`Pedido de ${cliente} salvo com sucesso!`);
       }
     } catch (error) {
@@ -396,6 +400,10 @@ export default function Home() {
           <span className="text-muted-foreground">Tamanho:</span>
           <span className="font-medium">{p.tamanho}ml</span>
         </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Quantidade:</span>
+          <span className="font-medium">{p.quantidade ?? 1} copo(s)</span>
+        </div>
         {(p.itens?.length ?? 0) > 0 && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Complementos:</span>
@@ -470,7 +478,7 @@ export default function Home() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div>
                     <Label className="text-sm font-semibold text-foreground">Tamanho</Label>
                     <Select value={tamanho} onValueChange={setTamanho}>
@@ -497,6 +505,21 @@ export default function Home() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="quantidade" className="text-sm font-semibold text-foreground">
+                      Quantidade de copos
+                    </Label>
+                    <Input
+                      id="quantidade"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={quantidade}
+                      onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+                      className="mt-2 h-11 border-border focus:ring-[#2D5016]"
+                    />
                   </div>
                 </div>
 
@@ -539,6 +562,10 @@ export default function Home() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Sabor:</span>
                   <span className="font-medium">{sabor}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Quantidade:</span>
+                  <span className="font-medium">{quantidade} copo(s)</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Complementos:</span>
