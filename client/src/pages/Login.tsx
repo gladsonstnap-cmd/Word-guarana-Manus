@@ -5,14 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { setSessionToken } from "@/lib/auth-session";
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const utils = trpc.useUtils();
   const login = trpc.auth.login.useMutation({
-    onSuccess: async user => {
-      utils.auth.me.setData(undefined, user);
+    onSuccess: async result => {
+      setSessionToken(result.token);
+      utils.auth.me.setData(undefined, result.user);
       await utils.auth.me.invalidate();
     },
     onError: error => toast.error(error.message),

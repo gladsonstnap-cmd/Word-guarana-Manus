@@ -1,13 +1,10 @@
 import { promisify } from "node:util";
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
-import type { Request, Response } from "express";
-import { parse } from "cookie";
-import { getSessionCookieOptions } from "./_core/cookies";
+import type { Request } from "express";
 import { ENV } from "./_core/env";
 
 const scryptAsync = promisify(scrypt);
-export const LOCAL_SESSION_COOKIE = "world_guarana_session";
 
 function secret() {
   if (!ENV.cookieSecret) throw new Error("JWT_SECRET não configurado");
@@ -28,21 +25,17 @@ export async function verifyPassword(password: string, stored: string) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-export async function setLocalSession(res: Response, req: Request, userId: number) {
-  const token = await new SignJWT({ userId })
+export async function createLocalSession(userId: number) {
+  return new SignJWT({ userId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(secret());
-  res.cookie(LOCAL_SESSION_COOKIE, token, {
-    ...getSessionCookieOptions(req),
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
 }
 
 export async function getLocalSessionUserId(req: Request) {
-  const cookies = parse(req.headers.cookie ?? "");
-  const token = cookies[LOCAL_SESSION_COOKIE];
+  const authorization = req.headers.authorization;
+  const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
   if (!token || !ENV.cookieSecret) return null;
   try {
     const { payload } = await jwtVerify(token, secret());

@@ -71,6 +71,7 @@ interface Pedido {
   tamanho: string;
   sabor: string;
   quantidade: number;
+  formaPagamento: "dinheiro" | "pix" | "cartao";
   itens?: string[];
   valor: number;
   status: StatusPedido;
@@ -87,6 +88,7 @@ export default function Home() {
   const [tamanho, setTamanho] = useState("500");
   const [sabor, setSabor] = useState("Tradicional");
   const [quantidade, setQuantidade] = useState(1);
+  const [formaPagamento, setFormaPagamento] = useState<"dinheiro" | "pix" | "cartao">("dinheiro");
   const [complementosSelecionados, setComplementosSelecionados] = useState<string[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [uploadingIds, setUploadingIds] = useState<number[]>([]);
@@ -144,6 +146,7 @@ export default function Home() {
         tamanho,
         sabor,
         quantidade,
+        formaPagamento,
         valor,
         itens: complementosSelecionados,
       });
@@ -155,6 +158,7 @@ export default function Home() {
         setSabor("Tradicional");
         setTamanho("500");
         setQuantidade(1);
+        setFormaPagamento("dinheiro");
         toast.success(`Pedido de ${cliente} salvo com sucesso!`);
       }
     } catch (error) {
@@ -406,6 +410,12 @@ export default function Home() {
           <span className="text-muted-foreground">Quantidade:</span>
           <span className="font-medium">{p.quantidade ?? 1} copo(s)</span>
         </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Pagamento:</span>
+          <span className="font-medium">
+            {p.formaPagamento === "pix" ? "Pix" : p.formaPagamento === "cartao" ? "Cartão" : "Dinheiro"}
+          </span>
+        </div>
         {(p.itens?.length ?? 0) > 0 && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Complementos:</span>
@@ -531,6 +541,18 @@ export default function Home() {
                       className="mt-2 h-11 border-border focus:ring-[#2D5016]"
                     />
                   </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold text-foreground">Forma de pagamento</Label>
+                    <Select value={formaPagamento} onValueChange={v => setFormaPagamento(v as "dinheiro" | "pix" | "cartao")}>
+                      <SelectTrigger className="mt-2 h-11 border-border"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                        <SelectItem value="pix">Pix</SelectItem>
+                        <SelectItem value="cartao">Cartão</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="pt-5 border-t border-border">
@@ -576,6 +598,10 @@ export default function Home() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Quantidade:</span>
                   <span className="font-medium">{quantidade} copo(s)</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Pagamento:</span>
+                  <span className="font-medium">{formaPagamento === "pix" ? "Pix" : formaPagamento === "cartao" ? "Cartão" : "Dinheiro"}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Complementos:</span>

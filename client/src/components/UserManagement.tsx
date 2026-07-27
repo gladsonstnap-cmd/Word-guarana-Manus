@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 
 export default function UserManagement() {
   const [username, setUsername] = useState("");
@@ -24,6 +25,13 @@ export default function UserManagement() {
   });
   const update = trpc.usuarios.atualizar.useMutation({
     onSuccess: async () => utils.usuarios.listar.invalidate(),
+    onError: error => toast.error(error.message),
+  });
+  const remove = trpc.usuarios.deletar.useMutation({
+    onSuccess: async () => {
+      await utils.usuarios.listar.invalidate();
+      toast.success("Usuário excluído");
+    },
     onError: error => toast.error(error.message),
   });
 
@@ -48,6 +56,19 @@ export default function UserManagement() {
               <Button size="sm" variant="outline" onClick={() => update.mutate({ id: user.id, active: !user.active })}>
                 {user.active ? "Desativar" : "Ativar"}
               </Button>
+              {user.role === "user" && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => {
+                    if (window.confirm(`Excluir o usuário ${user.name}?`)) remove.mutate({ id: user.id });
+                  }}
+                  disabled={remove.isPending}
+                  className="gap-1"
+                >
+                  <Trash2 size={14} /> Excluir
+                </Button>
+              )}
             </div>
           </div>
         ))}
