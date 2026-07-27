@@ -237,10 +237,12 @@ export default function Home() {
 
   const gerarRelatorio = async () => {
     try {
-      const dados = await trpc.caixa.gerarPDF.useQuery({ data: dataSelecionada }).refetch();
-      if (dados.data) {
-        gerarTXTRelatorio(dados.data);
+      const resultado = await gerarPDFQuery.refetch();
+      if (resultado.data) {
+        gerarTXTRelatorio(resultado.data);
         toast.success("Relatório gerado com sucesso!");
+      } else {
+        toast.error("Não foi possível obter os dados do relatório");
       }
     } catch (error) {
       toast.error("Erro ao gerar relatório");
@@ -567,98 +569,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Seção: Filtros e Busca */}
-        <Card className="mt-8 p-5 md:p-6 border border-border bg-white shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Gestão</p>
-              <h2 className="text-2xl font-bold text-[#2D5016] mt-1">Filtros e Busca</h2>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Buscar Cliente</Label>
-              <Input
-                placeholder="Digite o nome do cliente"
-                value={buscaCliente}
-                onChange={(e) => setBuscaCliente(e.target.value)}
-                className="border-border"
-              />
-            </div>
-            
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Status</Label>
-              <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as any)}>
-                <SelectTrigger className="border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="em-preparo">Em Preparo</SelectItem>
-                  <SelectItem value="pronto">Pronto</SelectItem>
-                  <SelectItem value="entregue">Entregue</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Sabor</Label>
-              <Select value={filtroSabor} onValueChange={setFiltroSabor}>
-                <SelectTrigger className="border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {sabores.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Data</Label>
-              <Input
-                type="date"
-                value={dataSelecionada}
-                onChange={(e) => setDataSelecionada(e.target.value)}
-                className="border-border"
-              />
-            </div>
-          </div>
-
-          {/* Botões de Ação */}
-          <div className="flex gap-3 flex-wrap pt-5 border-t border-border">
-            <Button
-              onClick={gerarRelatorio}
-              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-            >
-              <FileText size={18} />
-              Gerar Relatório
-            </Button>
-
-            <Button
-              onClick={() => navigate("/historico")}
-              className="bg-[#2D5016] hover:bg-[#1A3A0A] text-white flex items-center gap-2"
-            >
-              <BarChart3 size={18} />
-              Histórico
-            </Button>
-
-            <Button
-              onClick={() => setMostrarFechamento(true)}
-              className="bg-[#C85A54] hover:bg-[#A84A44] text-white flex items-center gap-2"
-            >
-              <LogOut size={18} />
-              Fechar Caixa
-            </Button>
-          </div>
-        </Card>
-
         {/* Modal de Fechamento de Caixa */}
         {mostrarFechamento && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -775,6 +685,89 @@ export default function Home() {
             </Card>
           )}
         </div>
+
+        {/* Gestão */}
+        <Card className="mt-10 p-5 md:p-6 border border-border bg-white shadow-sm">
+          <div className="mb-5">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Gestão</p>
+            <h2 className="text-2xl font-bold text-[#2D5016] mt-1">Filtros e Busca</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Consulte pedidos, gere relatórios e encerre o movimento do dia.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Buscar Cliente</Label>
+              <Input
+                placeholder="Digite o nome do cliente"
+                value={buscaCliente}
+                onChange={(e) => setBuscaCliente(e.target.value)}
+                className="border-border"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Status</Label>
+              <Select value={filtroStatus} onValueChange={(v) => setFiltroStatus(v as StatusPedido | "todos")}>
+                <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="em-preparo">Em Preparo</SelectItem>
+                  <SelectItem value="pronto">Pronto</SelectItem>
+                  <SelectItem value="entregue">Entregue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Sabor</Label>
+              <Select value={filtroSabor} onValueChange={setFiltroSabor}>
+                <SelectTrigger className="border-border"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-64">
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {sabores.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Data</Label>
+              <Input
+                type="date"
+                value={dataSelecionada}
+                onChange={(e) => setDataSelecionada(e.target.value)}
+                className="border-border"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 flex-wrap pt-5 border-t border-border">
+            <Button
+              onClick={gerarRelatorio}
+              disabled={gerarPDFQuery.isFetching}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+            >
+              <FileText size={18} />
+              {gerarPDFQuery.isFetching ? "Gerando..." : "Gerar Relatório"}
+            </Button>
+            <Button
+              onClick={() => navigate("/historico")}
+              className="bg-[#2D5016] hover:bg-[#1A3A0A] text-white flex items-center gap-2"
+            >
+              <BarChart3 size={18} />
+              Histórico
+            </Button>
+            <Button
+              onClick={() => setMostrarFechamento(true)}
+              className="bg-[#C85A54] hover:bg-[#A84A44] text-white flex items-center gap-2"
+            >
+              <LogOut size={18} />
+              Fechar Caixa
+            </Button>
+          </div>
+        </Card>
       </main>
 
       {/* Footer */}
