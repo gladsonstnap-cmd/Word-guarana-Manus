@@ -405,7 +405,7 @@ export default function Home() {
       <div className="pt-3 border-t border-border flex justify-between items-center">
         <span className="text-muted-foreground text-sm">Total:</span>
         <span className="text-xl font-bold text-[#C85A54]">
-          R$ {p.valor},00
+          {p.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
         </span>
       </div>
     </Card>
@@ -422,13 +422,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section com Background */}
-      <div className="relative w-full h-64 md:h-80 overflow-hidden">
+      <div className="relative w-full h-48 md:h-56 overflow-hidden">
         <img
           src="https://d2xsxph8kpxj0f.cloudfront.net/310519663566472000/72ZRcwoyRtrsjUn7Qyk5KS/guarana-hero-c2EBeLViRnzyL773eSYGnV.webp"
           alt="World Guaraná Background"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/20 to-white"></div>
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-[#2D5016] drop-shadow-lg">
@@ -441,21 +441,22 @@ export default function Home() {
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <main className="container mx-auto px-4 py-6 md:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Formulário - Coluna Principal */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2">
             {/* Card: Dados do Cliente */}
-            <Card className="p-6 border border-border shadow-sm hover:shadow-md transition-shadow">
-              <h2 className="text-xl font-bold text-[#2D5016] mb-4">
-                Dados do Cliente
-              </h2>
-              <div className="space-y-3">
+            <Card className="p-5 md:p-6 border border-border bg-white shadow-sm">
+              <div className="mb-6">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Novo pedido</p>
+                <h2 className="text-2xl font-bold text-[#2D5016] mt-1">
+                  Dados do Cliente
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">Preencha os dados abaixo para registrar o pedido.</p>
+              </div>
+              <div className="space-y-6">
                 <div>
-                  <Label
-                    htmlFor="cliente"
-                    className="text-sm font-medium text-foreground"
-                  >
+                  <Label htmlFor="cliente" className="text-sm font-semibold text-foreground">
                     Nome do Cliente
                   </Label>
                   <Input
@@ -463,68 +464,59 @@ export default function Home() {
                     placeholder="Digite o nome do cliente"
                     value={cliente}
                     onChange={(e) => setCliente(e.target.value)}
-                    className="mt-2 border-border focus:ring-[#2D5016]"
+                    className="mt-2 h-11 border-border focus:ring-[#2D5016]"
                   />
                 </div>
-              </div>
-            </Card>
 
-            {/* Card: Tamanho */}
-            <Card className="p-6 border border-border shadow-sm hover:shadow-md transition-shadow">
-              <h2 className="text-xl font-bold text-[#2D5016] mb-4">Tamanho</h2>
-              <Select value={tamanho} onValueChange={setTamanho}>
-                <SelectTrigger className="border-border focus:ring-[#2D5016]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="400">400ml - R$ 15,00</SelectItem>
-                  <SelectItem value="500">500ml - R$ 20,00</SelectItem>
-                  <SelectItem value="700">700ml - R$ 25,00</SelectItem>
-                </SelectContent>
-              </Select>
-            </Card>
-
-            {/* Card: Sabor */}
-            <Card className="p-6 border border-border shadow-sm hover:shadow-md transition-shadow">
-              <h2 className="text-xl font-bold text-[#2D5016] mb-4">Sabor</h2>
-              <Select value={sabor} onValueChange={setSabor}>
-                <SelectTrigger className="border-border focus:ring-[#2D5016]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {sabores.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Card>
-
-            {/* Card: Complementos */}
-            <Card className="p-6 border border-border shadow-sm hover:shadow-md transition-shadow">
-              <h2 className="text-xl font-bold text-[#2D5016] mb-4">
-                Complementos
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                {complementos.map((c) => (
-                  <div key={c} className="flex items-center space-x-3">
-                    <Checkbox
-                      id={c}
-                      checked={complementosSelecionados.includes(c)}
-                      onCheckedChange={(checked) =>
-                        handleComplementoChange(c, checked as boolean)
-                      }
-                      className="border-border"
-                    />
-                    <Label
-                      htmlFor={c}
-                      className="text-sm cursor-pointer font-normal text-foreground"
-                    >
-                      {c}
-                    </Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <Label className="text-sm font-semibold text-foreground">Tamanho</Label>
+                    <Select value={tamanho} onValueChange={setTamanho}>
+                      <SelectTrigger className="mt-2 h-11 border-border focus:ring-[#2D5016]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="400">400ml - R$ 15,00</SelectItem>
+                        <SelectItem value="500">500ml - R$ 20,00</SelectItem>
+                        <SelectItem value="700">700ml - R$ 25,00</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                ))}
+
+                  <div>
+                    <Label className="text-sm font-semibold text-foreground">Sabor</Label>
+                    <Select value={sabor} onValueChange={setSabor}>
+                      <SelectTrigger className="mt-2 h-11 border-border focus:ring-[#2D5016]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        {sabores.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="pt-5 border-t border-border">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-sm font-semibold text-foreground">Complementos</Label>
+                    <span className="text-xs text-muted-foreground">{complementosSelecionados.length} selecionado(s)</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {complementos.map((c) => (
+                      <label key={c} htmlFor={c} className="flex items-center gap-3 rounded-lg border border-transparent p-2.5 hover:border-[#F4A460]/60 hover:bg-[#F4A460]/5 transition-colors">
+                        <Checkbox
+                          id={c}
+                          checked={complementosSelecionados.includes(c)}
+                          onCheckedChange={(checked) => handleComplementoChange(c, checked as boolean)}
+                          className="border-border"
+                        />
+                        <span className="text-sm cursor-pointer text-foreground">{c}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             </Card>
           </div>
@@ -532,7 +524,7 @@ export default function Home() {
           {/* Resumo e Ações - Coluna Lateral */}
           <div className="lg:col-span-1">
             {/* Card: Resumo do Pedido */}
-            <Card className="p-6 border-2 border-[#2D5016] bg-gradient-to-br from-white to-[#F9F9F9] shadow-md sticky top-24">
+            <Card className="p-6 border border-[#2D5016]/20 bg-[#F7FAF5] shadow-sm sticky top-6">
               <h2 className="text-xl font-bold text-[#2D5016] mb-4">
                 Resumo do Pedido
               </h2>
@@ -558,7 +550,7 @@ export default function Home() {
                 <div className="flex justify-between items-baseline">
                   <span className="text-muted-foreground">Total:</span>
                   <span className="text-3xl font-bold text-[#C85A54]">
-                    R$ {valor},00
+                    {valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </span>
                 </div>
               </div>
@@ -566,7 +558,7 @@ export default function Home() {
               <Button
                 onClick={salvarPedido}
                 disabled={criarPedidoMutation.isPending}
-                className="w-full bg-[#2D5016] hover:bg-[#1A3A0A] text-white font-semibold py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                className="w-full h-12 bg-[#2D5016] hover:bg-[#1A3A0A] text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 <Plus size={20} />
                 {criarPedidoMutation.isPending ? "Salvando..." : "Salvar Pedido"}
@@ -576,10 +568,13 @@ export default function Home() {
         </div>
 
         {/* Seção: Filtros e Busca */}
-        <div className="mt-12 pt-8 border-t border-border">
-          <h2 className="text-2xl font-bold text-[#2D5016] mb-6">
-            Filtros e Busca
-          </h2>
+        <Card className="mt-8 p-5 md:p-6 border border-border bg-white shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Gestão</p>
+              <h2 className="text-2xl font-bold text-[#2D5016] mt-1">Filtros e Busca</h2>
+            </div>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div>
@@ -637,7 +632,7 @@ export default function Home() {
           </div>
 
           {/* Botões de Ação */}
-          <div className="flex gap-3 mb-6 flex-wrap">
+          <div className="flex gap-3 flex-wrap pt-5 border-t border-border">
             <Button
               onClick={gerarRelatorio}
               className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
@@ -662,7 +657,7 @@ export default function Home() {
               Fechar Caixa
             </Button>
           </div>
-        </div>
+        </Card>
 
         {/* Modal de Fechamento de Caixa */}
         {mostrarFechamento && (
@@ -699,7 +694,7 @@ export default function Home() {
                     <>
                       <p className="text-sm"><strong>Total de Pedidos do Dia:</strong> {pedidosDoDia.length}</p>
                       <p className="text-sm"><strong>Pedidos Entregues do Dia:</strong> {pedidosEntreguesDoDia}</p>
-                      <p className="text-sm"><strong>Faturamento do Dia:</strong> R$ {(faturamentoDoDia / 100).toFixed(2)}</p>
+                      <p className="text-sm"><strong>Faturamento do Dia:</strong> {faturamentoDoDia.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
                     </>
                   )}
                 </div>
@@ -726,13 +721,13 @@ export default function Home() {
         )}
 
         {/* Seção: Pedidos em Andamento */}
-        <div className="mt-12 pt-8 border-t border-border">
-          <h2 className="text-2xl font-bold text-[#2D5016] mb-6">
+        <div className="mt-8 pt-8 border-t border-border">
+          <h2 className="text-2xl font-bold text-[#2D5016] mb-5">
             Pedidos em Andamento ({pedidosAtivos.length})
           </h2>
 
           {pedidosAtivos.length === 0 ? (
-            <Card className="p-12 text-center border border-dashed border-border mb-12">
+            <Card className="p-10 text-center border border-dashed border-border bg-[#FAFBF9] mb-10">
               <p className="text-muted-foreground text-lg">
                 Nenhum pedido em andamento
               </p>
@@ -773,7 +768,7 @@ export default function Home() {
                 <div className="text-right">
                   <p className="text-white/80 text-sm">Faturamento</p>
                   <p className="text-3xl font-bold">
-                    R$ {(pedidos.reduce((acc, p) => acc + p.valor, 0) / 100).toFixed(2)}
+                    {pedidos.reduce((acc, p) => acc + p.valor, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </p>
                 </div>
               </div>

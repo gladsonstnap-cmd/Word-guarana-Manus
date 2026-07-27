@@ -59,7 +59,7 @@ export const fechamentoCaixa = mysqlTable("fechamentoCaixa", {
   id: int("id").autoincrement().primaryKey(),
   data: varchar("data", { length: 10 }).notNull(), // YYYY-MM-DD
   totalPedidos: int("totalPedidos").notNull(),
-  faturamentoTotal: int("faturamentoTotal").notNull(), // em centavos
+  faturamentoTotal: int("faturamentoTotal").notNull(), // em reais
   pedidosEntregues: int("pedidosEntregues").notNull(),
   tempoMedioPreparo: int("tempoMedioPreparo"), // em minutos
   observacoes: text("observacoes"),

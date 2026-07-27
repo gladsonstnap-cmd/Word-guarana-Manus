@@ -49,7 +49,7 @@ export function gerarPDFRelatorio(dados: DadosRelatorio) {
   const resumoData = [
     ["Total de Pedidos", `${dados.totalPedidos}`],
     ["Pedidos Entregues", `${dados.pedidosEntregues}`],
-    ["Faturamento Total", `R$ ${(dados.faturamentoTotal / 100).toFixed(2)}`],
+    ["Faturamento Total", `R$ ${dados.faturamentoTotal.toFixed(2)}`],
   ];
 
   (doc as any).autoTable({
@@ -78,7 +78,7 @@ export function gerarPDFRelatorio(dados: DadosRelatorio) {
     `${p.tamanho}ml`,
     p.itens || "-",
     p.status,
-    `R$ ${(p.valor / 100).toFixed(2)}`,
+    `R$ ${p.valor.toFixed(2)}`,
   ]);
 
   (doc as any).autoTable({
