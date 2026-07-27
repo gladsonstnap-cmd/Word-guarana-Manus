@@ -17,6 +17,7 @@ import {
 import { Trash2, Plus, Clock, Flame, CheckCircle, Truck, Lock, Upload, FileText, LogOut, BarChart3 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import UserManagement from "@/components/UserManagement";
 
 /**
  * Design: Modernismo Minimalista com Toques Tropicais
@@ -80,7 +81,8 @@ interface Pedido {
 }
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [cliente, setCliente] = useState("");
   const [tamanho, setTamanho] = useState("500");
   const [sabor, setSabor] = useState("Tradicional");
@@ -107,7 +109,7 @@ export default function Home() {
   const gerarPDFQuery = trpc.caixa.gerarPDF.useQuery({ data: dataSelecionada }, { enabled: false });
   const pedidosDoDiaQuery = trpc.pedidos.obterPorData.useQuery(
     { data: dataSelecionada },
-    { enabled: mostrarFechamento }
+    { enabled: isAdmin && mostrarFechamento }
   );
   const fecharCaixaMutation = trpc.caixa.fechar.useMutation();
 
@@ -317,7 +319,7 @@ export default function Home() {
               <Lock size={18} />
             </div>
           )}
-          {!isEncerrado && (
+          {!isEncerrado && isAdmin && (
             <button
               onClick={() => deletarPedido(p.id)}
               className="text-muted-foreground hover:text-[#C85A54] transition-colors opacity-0 group-hover:opacity-100"
@@ -452,6 +454,14 @@ export default function Home() {
       </div>
 
       <main className="container mx-auto px-4 py-6 md:py-8">
+        <div className="flex justify-end items-center gap-3 mb-5">
+          <span className="text-sm text-muted-foreground">
+            {user?.name || "Usuário"} · {isAdmin ? "Administrador" : "Usuário comum"}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => logout()} className="gap-2">
+            <LogOut size={16} /> Sair
+          </Button>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Formulário - Coluna Principal */}
           <div className="lg:col-span-2">
@@ -679,7 +689,7 @@ export default function Home() {
           )}
 
           {/* Seção: Pedidos Encerrados */}
-          {pedidosEncerrados.length > 0 && (
+          {isAdmin && pedidosEncerrados.length > 0 && (
             <div className="mt-12 pt-8 border-t border-border">
               <h2 className="text-2xl font-bold text-green-700 mb-6">
                 ✓ Pedidos Entregues ({pedidosEncerrados.length})
@@ -691,7 +701,7 @@ export default function Home() {
           )}
 
           {/* Resumo Total */}
-          {pedidos.length > 0 && (
+          {isAdmin && pedidos.length > 0 && (
             <Card className="mt-6 p-6 bg-gradient-to-r from-[#2D5016] to-[#1A3A0A] text-white border-0">
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -714,7 +724,7 @@ export default function Home() {
         </div>
 
         {/* Gestão */}
-        <Card className="mt-10 p-5 md:p-6 border border-border bg-white shadow-sm">
+        {isAdmin && <Card className="mt-10 p-5 md:p-6 border border-border bg-white shadow-sm">
           <div className="mb-5">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Gestão</p>
             <h2 className="text-2xl font-bold text-[#2D5016] mt-1">Filtros e Busca</h2>
@@ -794,7 +804,8 @@ export default function Home() {
               Fechar Caixa
             </Button>
           </div>
-        </Card>
+        </Card>}
+        {isAdmin && <UserManagement />}
       </main>
 
       {/* Footer */}

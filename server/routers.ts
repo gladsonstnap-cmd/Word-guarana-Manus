@@ -1,27 +1,98 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData } from "./db";
+import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser } from "./db";
 import { storagePut } from "./storage";
+import { ENV } from "./_core/env";
+import { hashPassword, LOCAL_SESSION_COOKIE, setLocalSession, verifyPassword } from "./localAuth";
+import { TRPCError } from "@trpc/server";
+
+async function ensureInitialAdmin() {
+  if (await countAppUsers()) return;
+  if (!ENV.adminUsername || !ENV.adminPassword) {
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Administrador inicial não configurado" });
+  }
+  await createAppUser({
+    username: ENV.adminUsername,
+    name: "Administrador",
+    passwordHash: await hashPassword(ENV.adminPassword),
+    role: "admin",
+    active: 1,
+  });
+}
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    login: publicProcedure.input(z.object({
+      username: z.string().min(1).max(50),
+      password: z.string().min(1).max(200),
+    })).mutation(async ({ input, ctx }) => {
+      await ensureInitialAdmin();
+      const user = await getAppUserByUsername(input.username);
+      if (!user?.active || !(await verifyPassword(input.password, user.passwordHash))) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Usuário ou senha inválidos" });
+      }
+      await setLocalSession(ctx.res, ctx.req, user.id);
+      const { passwordHash: _, ...safeUser } = user;
+      return safeUser;
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions, maxAge: -1 });
       return {
         success: true,
       } as const;
     }),
   }),
+  usuarios: router({
+    listar: adminProcedure.query(() => listAppUsers()),
+    criar: adminProcedure.input(z.object({
+      username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/, "Usuário inválido"),
+      name: z.string().min(2).max(100),
+      password: z.string().min(6).max(200),
+      role: z.enum(["user", "admin"]).default("user"),
+    })).mutation(async ({ input }) => {
+      if (await getAppUserByUsername(input.username)) {
+        throw new TRPCError({ code: "CONFLICT", message: "Nome de usuário já existe" });
+      }
+      const user = await createAppUser({
+        username: input.username,
+        name: input.name,
+        passwordHash: await hashPassword(input.password),
+        role: input.role,
+        active: 1,
+      });
+      if (!user) return null;
+      const { passwordHash: _, ...safeUser } = user;
+      return safeUser;
+    }),
+    atualizar: adminProcedure.input(z.object({
+      id: z.number().int().positive(),
+      name: z.string().min(2).max(100).optional(),
+      password: z.string().min(6).max(200).optional(),
+      role: z.enum(["user", "admin"]).optional(),
+      active: z.boolean().optional(),
+    })).mutation(async ({ input }) => {
+      const { id, password, active, ...rest } = input;
+      const user = await updateAppUser(id, {
+        ...rest,
+        ...(password ? { passwordHash: await hashPassword(password) } : {}),
+        ...(active === undefined ? {} : { active: active ? 1 : 0 }),
+      });
+      if (!user) return null;
+      const { passwordHash: _, ...safeUser } = user;
+      return safeUser;
+    }),
+  }),
 
   pedidos: router({
-    criar: publicProcedure
+    criar: protectedProcedure
       .input(z.object({
         cliente: z.string().min(1, "Nome do cliente é obrigatório"),
         tamanho: z.string(),
@@ -44,17 +115,17 @@ export const appRouter = router({
         return pedido;
       }),
 
-    listar: publicProcedure.query(async () => {
+    listar: protectedProcedure.query(async () => {
       return await listarPedidos();
     }),
 
-    obter: publicProcedure
+    obter: protectedProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
         return await obterPedido(input.id);
       }),
 
-    atualizarStatus: publicProcedure
+    atualizarStatus: protectedProcedure
       .input(z.object({
         id: z.number(),
         status: z.enum(["pendente", "em-preparo", "pronto", "entregue"]),
@@ -63,13 +134,13 @@ export const appRouter = router({
         return await atualizarStatusPedido(input.id, input.status);
       }),
 
-    deletar: publicProcedure
+    deletar: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         return await deletarPedido(input.id);
       }),
 
-    uploadImagem: publicProcedure
+    uploadImagem: protectedProcedure
       .input(z.object({
         id: z.number(),
         imagem: z.string(), // base64 string
@@ -96,13 +167,13 @@ export const appRouter = router({
         }
       }),
 
-    obterPorData: publicProcedure
+    obterPorData: adminProcedure
       .input(z.object({ data: z.string() }))
       .query(async ({ input }) => {
         return await obterPedidosPorData(input.data);
       }),
 
-    gerarRelatorioJSON: publicProcedure
+    gerarRelatorioJSON: adminProcedure
       .input(z.object({ data: z.string() }))
       .query(async ({ input }) => {
         const pedidos = await obterPedidosPorData(input.data);
@@ -121,7 +192,7 @@ export const appRouter = router({
   }),
 
   caixa: router({
-    fechar: publicProcedure
+    fechar: adminProcedure
       .input(z.object({
         data: z.string(),
         observacoes: z.string().optional(),
@@ -156,17 +227,17 @@ export const appRouter = router({
         return fechamento;
       }),
 
-    obterPorData: publicProcedure
+    obterPorData: adminProcedure
       .input(z.object({ data: z.string() }))
       .query(async ({ input }) => {
         return await obterFechamentoPorData(input.data);
       }),
 
-    listar: publicProcedure.query(async () => {
+    listar: adminProcedure.query(async () => {
       return await listarFechamentos();
     }),
 
-    gerarPDF: publicProcedure
+    gerarPDF: adminProcedure
       .input(z.object({ data: z.string() }))
       .query(async ({ input }) => {
         const pedidos = await obterPedidosPorData(input.data);
@@ -193,7 +264,7 @@ export const appRouter = router({
         };
       }),
 
-    obterEstatisticas: publicProcedure.query(async () => {
+    obterEstatisticas: adminProcedure.query(async () => {
       const fechamentos = await listarFechamentos();
       
       const totalFaturamento = fechamentos.reduce((acc, f) => acc + f.faturamentoTotal, 0);
@@ -231,7 +302,7 @@ export const appRouter = router({
       };
     }),
 
-    obterDetalhesFechamento: publicProcedure
+    obterDetalhesFechamento: adminProcedure
       .input(z.object({ data: z.string() }))
       .query(async ({ input }) => {
         const pedidos = await obterPedidosFechadosPorData(input.data);
