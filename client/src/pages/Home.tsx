@@ -103,6 +103,10 @@ export default function Home() {
   const deletarPedidoMutation = trpc.pedidos.deletar.useMutation();
   const uploadImagemMutation = trpc.pedidos.uploadImagem.useMutation();
   const gerarPDFQuery = trpc.caixa.gerarPDF.useQuery({ data: dataSelecionada }, { enabled: false });
+  const pedidosDoDiaQuery = trpc.pedidos.obterPorData.useQuery(
+    { data: dataSelecionada },
+    { enabled: mostrarFechamento }
+  );
   const fecharCaixaMutation = trpc.caixa.fechar.useMutation();
 
   // Carregar pedidos ao montar o componente
@@ -279,6 +283,9 @@ export default function Home() {
 
   const pedidosAtivos = pedidosFiltrados.filter(p => !p.encerrado);
   const pedidosEncerrados = pedidosFiltrados.filter(p => p.encerrado);
+  const pedidosDoDia = (pedidosDoDiaQuery.data || []) as Pedido[];
+  const pedidosEntreguesDoDia = pedidosDoDia.filter(p => p.status === "entregue").length;
+  const faturamentoDoDia = pedidosDoDia.reduce((acc, p) => acc + p.valor, 0);
 
   const renderizarCard = (p: Pedido, index: number, isEncerrado: boolean) => (
     <Card
@@ -686,9 +693,15 @@ export default function Home() {
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                  <p className="text-sm"><strong>Total de Pedidos:</strong> {pedidos.length}</p>
-                  <p className="text-sm"><strong>Pedidos Entregues:</strong> {pedidos.filter(p => p.status === "entregue").length}</p>
-                  <p className="text-sm"><strong>Faturamento:</strong> R$ {(pedidos.reduce((acc, p) => acc + p.valor, 0) / 100).toFixed(2)}</p>
+                  {pedidosDoDiaQuery.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Calculando movimento do dia...</p>
+                  ) : (
+                    <>
+                      <p className="text-sm"><strong>Total de Pedidos do Dia:</strong> {pedidosDoDia.length}</p>
+                      <p className="text-sm"><strong>Pedidos Entregues do Dia:</strong> {pedidosEntreguesDoDia}</p>
+                      <p className="text-sm"><strong>Faturamento do Dia:</strong> R$ {(faturamentoDoDia / 100).toFixed(2)}</p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -702,7 +715,7 @@ export default function Home() {
                 </Button>
                 <Button
                   onClick={fecharCaixa}
-                  disabled={fecharCaixaMutation.isPending}
+                  disabled={fecharCaixaMutation.isPending || pedidosDoDiaQuery.isLoading}
                   className="flex-1 bg-[#2D5016] hover:bg-[#1A3A0A] text-white"
                 >
                   {fecharCaixaMutation.isPending ? "Fechando..." : "Confirmar Fechamento"}
