@@ -203,16 +203,16 @@ export const appRouter = router({
 
       const faturamentoPorDia = fechamentos.map(f => ({
         data: f.data,
-        faturamento: f.faturamentoTotal / 100,
+        faturamento: f.faturamentoTotal,
         pedidos: f.totalPedidos,
         entregues: f.pedidosEntregues,
       }));
 
       return {
-        totalFaturamento: totalFaturamento / 100,
+        totalFaturamento,
         totalPedidos,
         totalEntregues,
-        mediaPorDia: mediaPorDia / 100,
+        mediaPorDia,
         tempoMedioGeral,
         diasRegistrados: fechamentos.length,
         faturamentoPorDia,
@@ -220,7 +220,7 @@ export const appRouter = router({
           id: f.id,
           data: f.data,
           totalPedidos: f.totalPedidos,
-          faturamentoTotal: f.faturamentoTotal / 100,
+          faturamentoTotal: f.faturamentoTotal,
           pedidosEntregues: f.pedidosEntregues,
           tempoMedioPreparo: f.tempoMedioPreparo,
           observacoes: f.observacoes,
@@ -270,7 +270,7 @@ export const appRouter = router({
           resumo: {
             totalPedidos,
             pedidosEntregues,
-            faturamentoTotal: faturamentoTotal / 100,
+            faturamentoTotal,
             tempoMedioPreparo,
           },
           pedidosPorStatus,
@@ -280,7 +280,7 @@ export const appRouter = router({
             cliente: p.cliente,
             sabor: p.sabor,
             tamanho: p.tamanho,
-            valor: p.valor / 100,
+            valor: p.valor,
             status: p.status,
             itens: p.itens || [],
             imagemUrl: p.imagemUrl,

@@ -32,7 +32,7 @@ export function gerarTXTRelatorio(dados: DadosRelatorio) {
   conteudo += "─".repeat(66) + "\n";
   conteudo += `Total de Pedidos:        ${dados.totalPedidos}\n`;
   conteudo += `Pedidos Entregues:       ${dados.pedidosEntregues}\n`;
-  conteudo += `Faturamento Total:       R$ ${(dados.faturamentoTotal / 100).toFixed(2)}\n`;
+  conteudo += `Faturamento Total:       R$ ${dados.faturamentoTotal.toFixed(2)}\n`;
   conteudo += "═".repeat(66) + "\n\n";
   
   conteudo += "DETALHES DOS PEDIDOS\n";
@@ -41,7 +41,7 @@ export function gerarTXTRelatorio(dados: DadosRelatorio) {
   conteudo += "─".repeat(66) + "\n";
   
   dados.pedidos.forEach(p => {
-    conteudo += `${String(p.id).padEnd(5)} | ${p.cliente.substring(0, 20).padEnd(20)} | ${p.sabor.substring(0, 15).padEnd(15)} | ${p.status.substring(0, 12).padEnd(12)} | R$ ${(p.valor / 100).toFixed(2).padEnd(6)}\n`;
+    conteudo += `${String(p.id).padEnd(5)} | ${p.cliente.substring(0, 20).padEnd(20)} | ${p.sabor.substring(0, 15).padEnd(15)} | ${p.status.substring(0, 12).padEnd(12)} | R$ ${p.valor.toFixed(2).padEnd(6)}\n`;
   });
   
   conteudo += "═".repeat(66) + "\n\n";
