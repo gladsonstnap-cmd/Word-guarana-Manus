@@ -2,6 +2,7 @@ import { promisify } from "node:util";
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import type { Request, Response } from "express";
+import { parse } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { ENV } from "./_core/env";
 
@@ -40,7 +41,8 @@ export async function setLocalSession(res: Response, req: Request, userId: numbe
 }
 
 export async function getLocalSessionUserId(req: Request) {
-  const token = req.cookies?.[LOCAL_SESSION_COOKIE];
+  const cookies = parse(req.headers.cookie ?? "");
+  const token = cookies[LOCAL_SESSION_COOKIE];
   if (!token || !ENV.cookieSecret) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
