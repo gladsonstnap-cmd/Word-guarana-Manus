@@ -3,10 +3,10 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser } from "./db";
+import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser } from "./db";
 import { storagePut } from "./storage";
 import { ENV } from "./_core/env";
-import { hashPassword, LOCAL_SESSION_COOKIE, setLocalSession, verifyPassword } from "./localAuth";
+import { createLocalSession, hashPassword, verifyPassword } from "./localAuth";
 import { TRPCError } from "@trpc/server";
 
 async function ensureInitialAdmin() {
@@ -37,14 +37,12 @@ export const appRouter = router({
       if (!user?.active || !(await verifyPassword(input.password, user.passwordHash))) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Usuário ou senha inválidos" });
       }
-      await setLocalSession(ctx.res, ctx.req, user.id);
       const { passwordHash: _, ...safeUser } = user;
-      return safeUser;
+      return { user: safeUser, token: await createLocalSession(user.id) };
     }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      ctx.res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions, maxAge: -1 });
       return {
         success: true,
       } as const;
@@ -72,6 +70,8 @@ export const appRouter = router({
       const { passwordHash: _, ...safeUser } = user;
       return safeUser;
     }),
+    deletar: adminProcedure.input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => deleteCommonAppUser(input.id)),
     atualizar: adminProcedure.input(z.object({
       id: z.number().int().positive(),
       name: z.string().min(2).max(100).optional(),
@@ -98,6 +98,7 @@ export const appRouter = router({
         tamanho: z.string(),
         sabor: z.string(),
         quantidade: z.number().int().min(1).default(1),
+        formaPagamento: z.enum(["dinheiro", "pix", "cartao"]).default("dinheiro"),
         valor: z.number().positive(),
         itens: z.array(z.string()).default([]),
       }))
@@ -107,6 +108,7 @@ export const appRouter = router({
           tamanho: input.tamanho,
           sabor: input.sabor,
           quantidade: input.quantidade,
+          formaPagamento: input.formaPagamento,
           valor: input.valor,
           status: "pendente",
           encerrado: 0,
@@ -257,6 +259,7 @@ export const appRouter = router({
             sabor: p.sabor,
             tamanho: p.tamanho,
             quantidade: p.quantidade,
+            formaPagamento: p.formaPagamento,
             valor: p.valor,
             status: p.status,
             itens: p.itens?.join(", ") || "",
@@ -355,6 +358,7 @@ export const appRouter = router({
             sabor: p.sabor,
             tamanho: p.tamanho,
             quantidade: p.quantidade,
+            formaPagamento: p.formaPagamento,
             valor: p.valor,
             status: p.status,
             itens: p.itens || [],

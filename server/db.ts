@@ -124,6 +124,16 @@ export async function updateAppUser(id: number, data: Partial<Pick<InsertAppUser
   return getAppUserById(id);
 }
 
+export async function deleteCommonAppUser(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  const user = await getAppUserById(id);
+  if (!user) return false;
+  if (user.role === "admin") throw new Error("Administradores não podem ser excluídos");
+  await db.delete(appUsers).where(eq(appUsers.id, id));
+  return true;
+}
+
 export async function countAppUsers() {
   const db = await getDb();
   if (!db) return 0;

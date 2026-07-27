@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import "./index.css";
+import { getSessionToken } from "./lib/auth-session";
 
 const queryClient = new QueryClient();
 
@@ -28,9 +29,13 @@ const trpcClient = trpc.createClient({
       url: "/api/trpc",
       transformer: superjson,
       fetch(input, init) {
+        const token = getSessionToken();
         return globalThis.fetch(input, {
           ...(init ?? {}),
-          credentials: "include",
+          headers: {
+            ...Object.fromEntries(new Headers(init?.headers).entries()),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
       },
     }),
