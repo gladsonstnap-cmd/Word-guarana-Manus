@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, json, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -46,6 +46,12 @@ export const pedidos = mysqlTable("pedidos", {
   tamanho: varchar("tamanho", { length: 10 }).notNull(),
   sabor: varchar("sabor", { length: 100 }).notNull(),
   quantidade: int("quantidade").default(1).notNull(),
+  copos: json("copos").$type<Array<{
+    tamanho: string;
+    sabor: string;
+    quantidade: number;
+    valor: number;
+  }>>(),
   formaPagamento: mysqlEnum("formaPagamento", ["dinheiro", "pix", "cartao"]).default("dinheiro").notNull(),
   valor: int("valor").notNull(),
   status: mysqlEnum("status", ["pendente", "em-preparo", "pronto", "entregue"]).default("pendente").notNull(),
