@@ -77,6 +77,7 @@ interface Pedido {
   status: StatusPedido;
   encerrado: number;
   imagemUrl?: string | null;
+  dataFechamento?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -266,6 +267,7 @@ export default function Home() {
         data: dataSelecionada,
         observacoes: observacoesFechamento,
       });
+      await listarPedidosQuery.refetch();
       toast.success("Caixa fechado com sucesso!");
       setMostrarFechamento(false);
       setObservacoesFechamento("");
@@ -285,8 +287,17 @@ export default function Home() {
     return statusMap[status];
   };
 
-  // Aplicar filtros
-  const pedidosFiltrados = pedidos.filter((p) => {
+  const hoje = new Date();
+  const pedidosDoMovimento = pedidos.filter(p => {
+    if (!p.createdAt || p.dataFechamento) return false;
+    const dataPedido = new Date(p.createdAt);
+    return dataPedido.getFullYear() === hoje.getFullYear()
+      && dataPedido.getMonth() === hoje.getMonth()
+      && dataPedido.getDate() === hoje.getDate();
+  });
+
+  // Aplicar filtros somente aos pedidos do movimento atual
+  const pedidosFiltrados = pedidosDoMovimento.filter((p) => {
     const matchCliente = p.cliente.toLowerCase().includes(buscaCliente.toLowerCase());
     const matchStatus = filtroStatus === "todos" || p.status === filtroStatus;
     const matchSabor = filtroSabor === "todos" || p.sabor === filtroSabor;
@@ -295,16 +306,7 @@ export default function Home() {
 
   const pedidosAtivos = pedidosFiltrados.filter(p => !p.encerrado);
   const pedidosEncerrados = pedidosFiltrados.filter(p => p.encerrado);
-  const hoje = new Date();
-  const faturamentoDiario = pedidos
-    .filter(p => {
-      if (!p.createdAt) return false;
-      const dataPedido = new Date(p.createdAt);
-      return dataPedido.getFullYear() === hoje.getFullYear()
-        && dataPedido.getMonth() === hoje.getMonth()
-        && dataPedido.getDate() === hoje.getDate();
-    })
-    .reduce((acc, p) => acc + p.valor, 0);
+  const faturamentoDiario = pedidosDoMovimento.reduce((acc, p) => acc + p.valor, 0);
   const pedidosDoDia = (pedidosDoDiaQuery.data || []) as Pedido[];
   const pedidosEntreguesDoDia = pedidosDoDia.filter(p => p.status === "entregue").length;
   const faturamentoDoDia = pedidosDoDia.reduce((acc, p) => acc + p.valor, 0);
