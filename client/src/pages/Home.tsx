@@ -64,6 +64,7 @@ const complementos = [
 ];
 
 type StatusPedido = "pendente" | "em-preparo" | "pronto" | "entregue";
+type CopoPedido = { tamanho: string; sabor: string; quantidade: number; valor: number };
 
 interface Pedido {
   id: number;
@@ -72,6 +73,7 @@ interface Pedido {
   sabor: string;
   quantidade: number;
   formaPagamento: "dinheiro" | "pix" | "cartao";
+  copos?: CopoPedido[] | null;
   itens?: string[];
   valor: number;
   status: StatusPedido;
@@ -89,6 +91,7 @@ export default function Home() {
   const [tamanho, setTamanho] = useState("500");
   const [sabor, setSabor] = useState("Tradicional");
   const [quantidade, setQuantidade] = useState(1);
+  const [coposPedido, setCoposPedido] = useState<CopoPedido[]>([]);
   const [formaPagamento, setFormaPagamento] = useState<"dinheiro" | "pix" | "cartao">("dinheiro");
   const [complementosSelecionados, setComplementosSelecionados] = useState<string[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -123,7 +126,19 @@ export default function Home() {
     }
   }, [listarPedidosQuery.data]);
 
-  const valor = tamanho === "700" ? 25 : tamanho === "500" ? 20 : 15;
+  const valorCopoAtual = tamanho === "700" ? 25 : tamanho === "500" ? 20 : 15;
+  const valor = coposPedido.reduce((total, copo) => total + copo.valor, 0);
+
+  const adicionarCopo = () => {
+    setCoposPedido(prev => [...prev, {
+      tamanho,
+      sabor,
+      quantidade,
+      valor: valorCopoAtual,
+    }]);
+    setQuantidade(1);
+    toast.success("Copo adicionado ao pedido");
+  };
 
   const handleComplementoChange = (complemento: string, checked: boolean) => {
     if (checked) {
@@ -140,13 +155,19 @@ export default function Home() {
       toast.error("Por favor, insira o nome do cliente");
       return;
     }
+    if (coposPedido.length === 0) {
+      toast.error("Adicione pelo menos um copo ao pedido");
+      return;
+    }
 
     try {
+      const primeiroCopo = coposPedido[0];
       const novoPedido = await criarPedidoMutation.mutateAsync({
         cliente,
-        tamanho,
-        sabor,
-        quantidade,
+        tamanho: primeiroCopo.tamanho,
+        sabor: coposPedido.map(c => c.sabor).join(" + "),
+        quantidade: coposPedido.reduce((total, c) => total + c.quantidade, 0),
+        copos: coposPedido,
         formaPagamento,
         valor,
         itens: complementosSelecionados,
@@ -159,6 +180,7 @@ export default function Home() {
         setSabor("Tradicional");
         setTamanho("500");
         setQuantidade(1);
+        setCoposPedido([]);
         setFormaPagamento("dinheiro");
         toast.success(`Pedido de ${cliente} salvo com sucesso!`);
       }
@@ -410,14 +432,23 @@ export default function Home() {
       </div>
 
       <div className="space-y-2 text-sm mb-3">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Sabor:</span>
-          <span className="font-medium">{p.sabor}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Tamanho:</span>
-          <span className="font-medium">{p.tamanho}ml</span>
-        </div>
+        {(p.copos?.length ?? 0) > 0 ? p.copos?.map((copo, index) => (
+          <div key={index} className="flex justify-between gap-3">
+            <span className="text-muted-foreground">{copo.quantidade}x {copo.sabor}</span>
+            <span className="font-medium">{copo.tamanho}ml</span>
+          </div>
+        )) : (
+          <>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Sabor:</span>
+              <span className="font-medium">{p.sabor}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Tamanho:</span>
+              <span className="font-medium">{p.tamanho}ml</span>
+            </div>
+          </>
+        )}
         <div className="flex justify-between">
           <span className="text-muted-foreground">Quantidade:</span>
           <span className="font-medium">{p.quantidade ?? 1} copo(s)</span>
@@ -567,6 +598,16 @@ export default function Home() {
                   </div>
                 </div>
 
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={adicionarCopo}
+                  className="w-full border-[#2D5016] text-[#2D5016] hover:bg-[#2D5016]/5"
+                >
+                  <Plus size={18} className="mr-2" />
+                  Adicionar este copo ao pedido
+                </Button>
+
                 <div className="pt-5 border-t border-border">
                   <div className="flex items-center justify-between mb-4">
                     <Label className="text-sm font-semibold text-foreground">Complementos</Label>
@@ -599,18 +640,26 @@ export default function Home() {
               </h2>
 
               <div className="space-y-3 mb-6 pb-6 border-b border-border">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tamanho:</span>
-                  <span className="font-medium">{tamanho}ml</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Sabor:</span>
-                  <span className="font-medium">{sabor}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Quantidade:</span>
-                  <span className="font-medium">{quantidade} copo(s)</span>
-                </div>
+                {coposPedido.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-3">Nenhum copo adicionado</p>
+                ) : coposPedido.map((copo, index) => (
+                  <div key={`${copo.sabor}-${copo.tamanho}-${index}`} className="rounded-lg border bg-white p-3 text-sm">
+                    <div className="flex justify-between gap-2">
+                      <div>
+                        <p className="font-semibold">{copo.quantidade}x {copo.sabor}</p>
+                        <p className="text-xs text-muted-foreground">{copo.tamanho}ml · {copo.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCoposPedido(prev => prev.filter((_, i) => i !== index))}
+                        className="text-muted-foreground hover:text-[#C85A54]"
+                        title="Remover copo"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Pagamento:</span>
                   <span className="font-medium">{formaPagamento === "pix" ? "Pix" : formaPagamento === "cartao" ? "Cartão" : "Dinheiro"}</span>
