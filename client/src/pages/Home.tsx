@@ -295,6 +295,16 @@ export default function Home() {
 
   const pedidosAtivos = pedidosFiltrados.filter(p => !p.encerrado);
   const pedidosEncerrados = pedidosFiltrados.filter(p => p.encerrado);
+  const hoje = new Date();
+  const faturamentoDiario = pedidos
+    .filter(p => {
+      if (!p.createdAt) return false;
+      const dataPedido = new Date(p.createdAt);
+      return dataPedido.getFullYear() === hoje.getFullYear()
+        && dataPedido.getMonth() === hoje.getMonth()
+        && dataPedido.getDate() === hoje.getDate();
+    })
+    .reduce((acc, p) => acc + p.valor, 0);
   const pedidosDoDia = (pedidosDoDiaQuery.data || []) as Pedido[];
   const pedidosEntreguesDoDia = pedidosDoDia.filter(p => p.status === "entregue").length;
   const faturamentoDoDia = pedidosDoDia.reduce((acc, p) => acc + p.valor, 0);
@@ -739,9 +749,9 @@ export default function Home() {
                   <p className="text-3xl font-bold">{pedidosAtivos.length}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-white/80 text-sm">Faturamento</p>
+                  <p className="text-white/80 text-sm">Faturamento do Dia</p>
                   <p className="text-3xl font-bold">
-                    {pedidos.reduce((acc, p) => acc + p.valor, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    {faturamentoDiario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </p>
                 </div>
               </div>
