@@ -264,7 +264,7 @@ export default function DetalhesFechamento() {
                     <td className="py-3 px-4 text-sm text-muted-foreground">
                       {pedido.copos.length > 0
                         ? pedido.copos.map(copo =>
-                            `${copo.sabor}: ${copo.complementos?.length ? copo.complementos.join(", ") : "sem complementos"}`
+                            `${copo.sabor}: complementos: ${copo.complementos?.length ? copo.complementos.join(", ") : "nenhum"}; coberturas: ${copo.coberturas?.length ? copo.coberturas.join(", ") : "nenhuma"}`
                           ).join(" | ")
                         : pedido.itens.length > 0 ? pedido.itens.join(", ") : "-"}
                     </td>
