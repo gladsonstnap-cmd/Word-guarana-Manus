@@ -1,6 +1,6 @@
 import { eq, and, desc, gte, lt, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, appUsers, InsertAppUser, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
+import { InsertUser, users, empresas, appUsers, InsertAppUser, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -101,13 +101,28 @@ export async function getAppUserByUsername(username: string) {
   return (await db.select().from(appUsers).where(eq(appUsers.username, username.toLowerCase())).limit(1))[0];
 }
 
-export async function listAppUsers() {
+export async function ensureDefaultEmpresa() {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  const existente = (await db.select().from(empresas).where(eq(empresas.id, 1)).limit(1))[0];
+  if (existente) return existente;
+  await db.insert(empresas).values({
+    id: 1,
+    nome: "World Guaraná",
+    slug: "world-guarana",
+    plano: "profissional",
+    assinaturaStatus: "ativa",
+  });
+  return (await db.select().from(empresas).where(eq(empresas.id, 1)).limit(1))[0];
+}
+
+export async function listAppUsers(empresaId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select({
     id: appUsers.id, username: appUsers.username, name: appUsers.name,
     role: appUsers.role, active: appUsers.active, createdAt: appUsers.createdAt,
-  }).from(appUsers).orderBy(appUsers.name);
+  }).from(appUsers).where(eq(appUsers.empresaId, empresaId)).orderBy(appUsers.name);
 }
 
 export async function createAppUser(data: InsertAppUser) {
@@ -117,18 +132,19 @@ export async function createAppUser(data: InsertAppUser) {
   return getAppUserByUsername(data.username);
 }
 
-export async function updateAppUser(id: number, data: Partial<Pick<InsertAppUser, "name" | "passwordHash" | "role" | "active">>) {
+export async function updateAppUser(id: number, empresaId: number, data: Partial<Pick<InsertAppUser, "name" | "passwordHash" | "role" | "active">>) {
   const db = await getDb();
   if (!db) throw new Error("Banco de dados indisponível");
-  await db.update(appUsers).set(data).where(eq(appUsers.id, id));
-  return getAppUserById(id);
+  await db.update(appUsers).set(data).where(and(eq(appUsers.id, id), eq(appUsers.empresaId, empresaId)));
+  const user = await getAppUserById(id);
+  return user?.empresaId === empresaId ? user : undefined;
 }
 
-export async function deleteCommonAppUser(id: number) {
+export async function deleteCommonAppUser(id: number, empresaId: number) {
   const db = await getDb();
   if (!db) throw new Error("Banco de dados indisponível");
   const user = await getAppUserById(id);
-  if (!user) return false;
+  if (!user || user.empresaId !== empresaId) return false;
   if (user.role === "admin") throw new Error("Administradores não podem ser excluídos");
   await db.delete(appUsers).where(eq(appUsers.id, id));
   return true;
@@ -175,7 +191,7 @@ export async function criarPedido(data: InsertPedido & { itens: string[] }): Pro
   }
 }
 
-export async function listarPedidos(): Promise<(Pedido & { itens: string[] })[]> {
+export async function listarPedidos(empresaId: number): Promise<(Pedido & { itens: string[] })[]> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot list pedidos: database not available");
@@ -183,7 +199,7 @@ export async function listarPedidos(): Promise<(Pedido & { itens: string[] })[]>
   }
 
   try {
-    const allPedidos = await db.select().from(pedidos).orderBy(desc(pedidos.createdAt));
+    const allPedidos = await db.select().from(pedidos).where(eq(pedidos.empresaId, empresaId)).orderBy(desc(pedidos.createdAt));
     
     // Buscar itens para cada pedido
     const pedidosComItens = await Promise.all(
@@ -203,7 +219,7 @@ export async function listarPedidos(): Promise<(Pedido & { itens: string[] })[]>
   }
 }
 
-export async function obterPedido(id: number): Promise<(Pedido & { itens: string[] }) | null> {
+export async function obterPedido(id: number, empresaId: number): Promise<(Pedido & { itens: string[] }) | null> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get pedido: database not available");
@@ -211,7 +227,7 @@ export async function obterPedido(id: number): Promise<(Pedido & { itens: string
   }
 
   try {
-    const result = await db.select().from(pedidos).where(eq(pedidos.id, id)).limit(1);
+    const result = await db.select().from(pedidos).where(and(eq(pedidos.id, id), eq(pedidos.empresaId, empresaId))).limit(1);
     if (!result[0]) return null;
 
     const items = await db.select().from(itensPedido).where(eq(itensPedido.pedidoId, id));
@@ -225,7 +241,7 @@ export async function obterPedido(id: number): Promise<(Pedido & { itens: string
   }
 }
 
-export async function atualizarStatusPedido(id: number, novoStatus: string): Promise<Pedido | null> {
+export async function atualizarStatusPedido(id: number, empresaId: number, novoStatus: string): Promise<Pedido | null> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot update pedido: database not available");
@@ -238,9 +254,9 @@ export async function atualizarStatusPedido(id: number, novoStatus: string): Pro
       status: novoStatus as any,
       encerrado: isEntregue ? 1 : 0,
       updatedAt: new Date(),
-    }).where(eq(pedidos.id, id));
+    }).where(and(eq(pedidos.id, id), eq(pedidos.empresaId, empresaId)));
 
-    const result = await db.select().from(pedidos).where(eq(pedidos.id, id)).limit(1);
+    const result = await db.select().from(pedidos).where(and(eq(pedidos.id, id), eq(pedidos.empresaId, empresaId))).limit(1);
     return result[0] || null;
   } catch (error) {
     console.error("[Database] Failed to update pedido:", error);
@@ -248,7 +264,7 @@ export async function atualizarStatusPedido(id: number, novoStatus: string): Pro
   }
 }
 
-export async function deletarPedido(id: number): Promise<boolean> {
+export async function deletarPedido(id: number, empresaId: number): Promise<boolean> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot delete pedido: database not available");
@@ -256,6 +272,8 @@ export async function deletarPedido(id: number): Promise<boolean> {
   }
 
   try {
+    const pedido = await obterPedido(id, empresaId);
+    if (!pedido) return false;
     // Deletar itens primeiro
     await db.delete(itensPedido).where(eq(itensPedido.pedidoId, id));
     // Depois deletar pedido
@@ -267,7 +285,7 @@ export async function deletarPedido(id: number): Promise<boolean> {
   }
 }
 
-export async function atualizarImagemPedido(id: number, imagemUrl: string): Promise<Pedido | null> {
+export async function atualizarImagemPedido(id: number, empresaId: number, imagemUrl: string): Promise<Pedido | null> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot update imagem: database not available");
@@ -278,9 +296,9 @@ export async function atualizarImagemPedido(id: number, imagemUrl: string): Prom
     await db.update(pedidos).set({
       imagemUrl,
       updatedAt: new Date(),
-    }).where(eq(pedidos.id, id));
+    }).where(and(eq(pedidos.id, id), eq(pedidos.empresaId, empresaId)));
 
-    const result = await db.select().from(pedidos).where(eq(pedidos.id, id)).limit(1);
+    const result = await db.select().from(pedidos).where(and(eq(pedidos.id, id), eq(pedidos.empresaId, empresaId))).limit(1);
     return result[0] || null;
   } catch (error) {
     console.error("[Database] Failed to update imagem:", error);
@@ -290,7 +308,7 @@ export async function atualizarImagemPedido(id: number, imagemUrl: string): Prom
 
 // ============ FECHAMENTO CAIXA QUERIES ============
 
-export async function obterPedidosFechadosPorData(data: string): Promise<(Pedido & { itens: string[] })[]> {
+export async function obterPedidosFechadosPorData(data: string, empresaId: number): Promise<(Pedido & { itens: string[] })[]> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get closed pedidos by date: database not available");
@@ -300,7 +318,7 @@ export async function obterPedidosFechadosPorData(data: string): Promise<(Pedido
   try {
     // Buscar pedidos que foram fechados nesta data
     const allPedidos = await db.select().from(pedidos)
-      .where(eq(pedidos.dataFechamento, data))
+      .where(and(eq(pedidos.dataFechamento, data), eq(pedidos.empresaId, empresaId)))
       .orderBy(desc(pedidos.createdAt));
     
     const pedidosComItens = await Promise.all(
@@ -320,7 +338,7 @@ export async function obterPedidosFechadosPorData(data: string): Promise<(Pedido
   }
 }
 
-export async function obterPedidosPorData(data: string): Promise<(Pedido & { itens: string[] })[]> {
+export async function obterPedidosPorData(data: string, empresaId: number): Promise<(Pedido & { itens: string[] })[]> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get pedidos by date: database not available");
@@ -338,7 +356,8 @@ export async function obterPedidosPorData(data: string): Promise<(Pedido & { ite
       .where(and(
         gte(pedidos.createdAt, startOfDay),
         lt(pedidos.createdAt, startOfNextDay),
-        isNull(pedidos.dataFechamento)
+        isNull(pedidos.dataFechamento),
+        eq(pedidos.empresaId, empresaId)
       ))
       .orderBy(desc(pedidos.createdAt));
     
@@ -359,7 +378,7 @@ export async function obterPedidosPorData(data: string): Promise<(Pedido & { ite
   }
 }
 
-export async function criarFechamentoCaixa(data: InsertFechamentoCaixa): Promise<FechamentoCaixa | null> {
+export async function criarFechamentoCaixa(data: InsertFechamentoCaixa, empresaId: number): Promise<FechamentoCaixa | null> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot create fechamento: database not available");
@@ -378,10 +397,11 @@ export async function criarFechamentoCaixa(data: InsertFechamentoCaixa): Promise
       .where(and(
         gte(pedidos.createdAt, startOfDay),
         lt(pedidos.createdAt, startOfNextDay),
-        isNull(pedidos.dataFechamento)
+        isNull(pedidos.dataFechamento),
+        eq(pedidos.empresaId, empresaId)
       ));
 
-    const result = await db.insert(fechamentoCaixa).values(data);
+    const result = await db.insert(fechamentoCaixa).values({ ...data, empresaId });
     const fechamentoId = (result as any)[0].insertId;
 
     const createdFechamento = await db.select().from(fechamentoCaixa).where(eq(fechamentoCaixa.id, fechamentoId)).limit(1);
@@ -392,7 +412,7 @@ export async function criarFechamentoCaixa(data: InsertFechamentoCaixa): Promise
   }
 }
 
-export async function obterFechamentoPorData(data: string): Promise<FechamentoCaixa | null> {
+export async function obterFechamentoPorData(data: string, empresaId: number): Promise<FechamentoCaixa | null> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot get fechamento: database not available");
@@ -400,7 +420,7 @@ export async function obterFechamentoPorData(data: string): Promise<FechamentoCa
   }
 
   try {
-    const result = await db.select().from(fechamentoCaixa).where(eq(fechamentoCaixa.data, data)).limit(1);
+    const result = await db.select().from(fechamentoCaixa).where(and(eq(fechamentoCaixa.data, data), eq(fechamentoCaixa.empresaId, empresaId))).limit(1);
     return result[0] || null;
   } catch (error) {
     console.error("[Database] Failed to get fechamento:", error);
@@ -408,7 +428,7 @@ export async function obterFechamentoPorData(data: string): Promise<FechamentoCa
   }
 }
 
-export async function listarFechamentos(): Promise<FechamentoCaixa[]> {
+export async function listarFechamentos(empresaId: number): Promise<FechamentoCaixa[]> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot list fechamentos: database not available");
@@ -416,7 +436,7 @@ export async function listarFechamentos(): Promise<FechamentoCaixa[]> {
   }
 
   try {
-    return await db.select().from(fechamentoCaixa).orderBy(desc(fechamentoCaixa.data));
+    return await db.select().from(fechamentoCaixa).where(eq(fechamentoCaixa.empresaId, empresaId)).orderBy(desc(fechamentoCaixa.data));
   } catch (error) {
     console.error("[Database] Failed to list fechamentos:", error);
     throw error;

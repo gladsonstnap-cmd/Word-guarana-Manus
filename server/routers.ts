@@ -3,13 +3,14 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser } from "./db";
+import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser, ensureDefaultEmpresa } from "./db";
 import { storagePut } from "./storage";
 import { ENV } from "./_core/env";
 import { createLocalSession, hashPassword, verifyPassword } from "./localAuth";
 import { TRPCError } from "@trpc/server";
 
 async function ensureInitialAdmin() {
+  await ensureDefaultEmpresa();
   if (await countAppUsers()) return;
   if (!ENV.adminUsername || !ENV.adminPassword) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Administrador inicial não configurado" });
@@ -20,6 +21,7 @@ async function ensureInitialAdmin() {
     passwordHash: await hashPassword(ENV.adminPassword),
     role: "admin",
     active: 1,
+    empresaId: 1,
   });
 }
 
@@ -49,13 +51,13 @@ export const appRouter = router({
     }),
   }),
   usuarios: router({
-    listar: adminProcedure.query(() => listAppUsers()),
+    listar: adminProcedure.query(({ ctx }) => listAppUsers(ctx.user.empresaId)),
     criar: adminProcedure.input(z.object({
       username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/, "Usuário inválido"),
       name: z.string().min(2).max(100),
       password: z.string().min(6).max(200),
       role: z.enum(["user", "admin"]).default("user"),
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ input, ctx }) => {
       if (await getAppUserByUsername(input.username)) {
         throw new TRPCError({ code: "CONFLICT", message: "Nome de usuário já existe" });
       }
@@ -65,22 +67,23 @@ export const appRouter = router({
         passwordHash: await hashPassword(input.password),
         role: input.role,
         active: 1,
+        empresaId: ctx.user.empresaId,
       });
       if (!user) return null;
       const { passwordHash: _, ...safeUser } = user;
       return safeUser;
     }),
     deletar: adminProcedure.input(z.object({ id: z.number().int().positive() }))
-      .mutation(async ({ input }) => deleteCommonAppUser(input.id)),
+      .mutation(async ({ input, ctx }) => deleteCommonAppUser(input.id, ctx.user.empresaId)),
     atualizar: adminProcedure.input(z.object({
       id: z.number().int().positive(),
       name: z.string().min(2).max(100).optional(),
       password: z.string().min(6).max(200).optional(),
       role: z.enum(["user", "admin"]).optional(),
       active: z.boolean().optional(),
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ input, ctx }) => {
       const { id, password, active, ...rest } = input;
-      const user = await updateAppUser(id, {
+      const user = await updateAppUser(id, ctx.user.empresaId, {
         ...rest,
         ...(password ? { passwordHash: await hashPassword(password) } : {}),
         ...(active === undefined ? {} : { active: active ? 1 : 0 }),
@@ -99,7 +102,7 @@ export const appRouter = router({
         month: "2-digit",
         day: "2-digit",
       }).format(new Date());
-      const pedidosDoDia = await obterPedidosPorData(hoje);
+      const pedidosDoDia = await obterPedidosPorData(hoje, 1);
 
       return pedidosDoDia
         .filter(pedido => !pedido.encerrado)
@@ -141,7 +144,7 @@ export const appRouter = router({
         valor: z.number().positive(),
         itens: z.array(z.string()).default([]),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const pedido = await criarPedido({
           cliente: input.cliente,
           tamanho: input.tamanho,
@@ -152,19 +155,20 @@ export const appRouter = router({
           valor: input.valor,
           status: "pendente",
           encerrado: 0,
+          empresaId: ctx.user.empresaId,
           itens: input.itens,
         });
         return pedido;
       }),
 
-    listar: protectedProcedure.query(async () => {
-      return await listarPedidos();
+    listar: protectedProcedure.query(async ({ ctx }) => {
+      return await listarPedidos(ctx.user.empresaId);
     }),
 
     obter: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        return await obterPedido(input.id);
+      .query(async ({ input, ctx }) => {
+        return await obterPedido(input.id, ctx.user.empresaId);
       }),
 
     atualizarStatus: protectedProcedure
@@ -172,14 +176,14 @@ export const appRouter = router({
         id: z.number(),
         status: z.enum(["pendente", "em-preparo", "pronto", "entregue"]),
       }))
-      .mutation(async ({ input }) => {
-        return await atualizarStatusPedido(input.id, input.status);
+      .mutation(async ({ input, ctx }) => {
+        return await atualizarStatusPedido(input.id, ctx.user.empresaId, input.status);
       }),
 
     deletar: adminProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
-        return await deletarPedido(input.id);
+      .mutation(async ({ input, ctx }) => {
+        return await deletarPedido(input.id, ctx.user.empresaId);
       }),
 
     uploadImagem: protectedProcedure
@@ -188,7 +192,7 @@ export const appRouter = router({
         imagem: z.string(), // base64 string
         mimeType: z.string().default("image/jpeg"),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         try {
           // Converter base64 para buffer
           const buffer = Buffer.from(input.imagem.split(",")[1] || input.imagem, "base64");
@@ -201,7 +205,7 @@ export const appRouter = router({
           );
 
           // Atualizar pedido com URL da imagem
-          const pedido = await atualizarImagemPedido(input.id, url);
+          const pedido = await atualizarImagemPedido(input.id, ctx.user.empresaId, url);
           return pedido;
         } catch (error) {
           console.error("[Upload] Failed to upload image:", error);
@@ -211,14 +215,14 @@ export const appRouter = router({
 
     obterPorData: adminProcedure
       .input(z.object({ data: z.string() }))
-      .query(async ({ input }) => {
-        return await obterPedidosPorData(input.data);
+      .query(async ({ input, ctx }) => {
+        return await obterPedidosPorData(input.data, ctx.user.empresaId);
       }),
 
     gerarRelatorioJSON: adminProcedure
       .input(z.object({ data: z.string() }))
-      .query(async ({ input }) => {
-        const pedidos = await obterPedidosPorData(input.data);
+      .query(async ({ input, ctx }) => {
+        const pedidos = await obterPedidosPorData(input.data, ctx.user.empresaId);
         const totalPedidos = pedidos.length;
         const pedidosEntregues = pedidos.filter(p => p.status === "entregue").length;
         const faturamentoTotal = pedidos.reduce((acc, p) => acc + p.valor, 0);
@@ -239,8 +243,8 @@ export const appRouter = router({
         data: z.string(),
         observacoes: z.string().optional(),
       }))
-      .mutation(async ({ input }) => {
-        const pedidos = await obterPedidosPorData(input.data);
+      .mutation(async ({ input, ctx }) => {
+        const pedidos = await obterPedidosPorData(input.data, ctx.user.empresaId);
         const totalPedidos = pedidos.length;
         const pedidosEntregues = pedidos.filter(p => p.status === "entregue").length;
         const faturamentoTotal = pedidos.reduce((acc, p) => acc + p.valor, 0);
@@ -264,25 +268,26 @@ export const appRouter = router({
           pedidosEntregues,
           tempoMedioPreparo,
           observacoes: input.observacoes,
-        });
+          empresaId: ctx.user.empresaId,
+        }, ctx.user.empresaId);
 
         return fechamento;
       }),
 
     obterPorData: adminProcedure
       .input(z.object({ data: z.string() }))
-      .query(async ({ input }) => {
-        return await obterFechamentoPorData(input.data);
+      .query(async ({ input, ctx }) => {
+        return await obterFechamentoPorData(input.data, ctx.user.empresaId);
       }),
 
-    listar: adminProcedure.query(async () => {
-      return await listarFechamentos();
+    listar: adminProcedure.query(async ({ ctx }) => {
+      return await listarFechamentos(ctx.user.empresaId);
     }),
 
     gerarPDF: adminProcedure
       .input(z.object({ data: z.string() }))
-      .query(async ({ input }) => {
-        const pedidos = await obterPedidosPorData(input.data);
+      .query(async ({ input, ctx }) => {
+        const pedidos = await obterPedidosPorData(input.data, ctx.user.empresaId);
         const totalPedidos = pedidos.length;
         const pedidosEntregues = pedidos.filter(p => p.status === "entregue").length;
         const faturamentoTotal = pedidos.reduce((acc, p) => acc + p.valor, 0);
@@ -308,8 +313,8 @@ export const appRouter = router({
         };
       }),
 
-    obterEstatisticas: adminProcedure.query(async () => {
-      const fechamentos = await listarFechamentos();
+    obterEstatisticas: adminProcedure.query(async ({ ctx }) => {
+      const fechamentos = await listarFechamentos(ctx.user.empresaId);
       
       const totalFaturamento = fechamentos.reduce((acc, f) => acc + f.faturamentoTotal, 0);
       const totalPedidos = fechamentos.reduce((acc, f) => acc + f.totalPedidos, 0);
@@ -348,9 +353,9 @@ export const appRouter = router({
 
     obterDetalhesFechamento: adminProcedure
       .input(z.object({ data: z.string() }))
-      .query(async ({ input }) => {
-        const pedidos = await obterPedidosFechadosPorData(input.data);
-        const fechamento = await obterFechamentoPorData(input.data);
+      .query(async ({ input, ctx }) => {
+        const pedidos = await obterPedidosFechadosPorData(input.data, ctx.user.empresaId);
+        const fechamento = await obterFechamentoPorData(input.data, ctx.user.empresaId);
 
         const totalPedidos = pedidos.length;
         const pedidosEntregues = pedidos.filter(p => p.status === "entregue").length;
