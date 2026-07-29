@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
-import { CheckCircle, Clock, Flame, RefreshCw } from "lucide-react";
+import { CheckCircle, Clock, Flame, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const statusConfig = {
   pendente: {
@@ -29,11 +30,57 @@ const formaPagamento = {
 } as const;
 
 export default function PainelPedidos() {
+  const [somAtivo, setSomAtivo] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const statusAnterioresRef = useRef<Map<number, string>>(new Map());
   const pedidosQuery = trpc.pedidos.painelPublico.useQuery(undefined, {
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
   });
   const pedidos = pedidosQuery.data ?? [];
+
+  const tocarAviso = () => {
+    const contexto = audioContextRef.current;
+    if (!contexto) return;
+
+    const inicio = contexto.currentTime;
+    [659.25, 783.99, 987.77].forEach((frequencia, index) => {
+      const oscilador = contexto.createOscillator();
+      const ganho = contexto.createGain();
+      const comeco = inicio + index * 0.22;
+      oscilador.type = "sine";
+      oscilador.frequency.value = frequencia;
+      ganho.gain.setValueAtTime(0.0001, comeco);
+      ganho.gain.exponentialRampToValueAtTime(0.28, comeco + 0.02);
+      ganho.gain.exponentialRampToValueAtTime(0.0001, comeco + 0.18);
+      oscilador.connect(ganho);
+      ganho.connect(contexto.destination);
+      oscilador.start(comeco);
+      oscilador.stop(comeco + 0.2);
+    });
+  };
+
+  const ativarSom = async () => {
+    const AudioContextClass = window.AudioContext
+      || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const contexto = audioContextRef.current ?? new AudioContextClass();
+    audioContextRef.current = contexto;
+    await contexto.resume();
+    setSomAtivo(true);
+    tocarAviso();
+  };
+
+  useEffect(() => {
+    const anteriores = statusAnterioresRef.current;
+    const ficouPronto = pedidos.some(
+      pedido => pedido.status === "pronto" && anteriores.get(pedido.id) !== "pronto"
+    );
+
+    if (somAtivo && ficouPronto) tocarAviso();
+    statusAnterioresRef.current = new Map(pedidos.map(pedido => [pedido.id, pedido.status]));
+  }, [pedidos, somAtivo]);
 
   return (
     <main className="min-h-screen bg-[#F3F7F0] p-4 sm:p-8">
@@ -43,9 +90,21 @@ export default function PainelPedidos() {
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#F4C27A]">World Guaraná</p>
             <h1 className="text-2xl font-bold sm:text-4xl">Acompanhe seu pedido</h1>
           </div>
-          <div className="flex items-center gap-2 text-sm text-white/80">
-            <RefreshCw size={16} className={pedidosQuery.isFetching ? "animate-spin" : ""} />
-            Atualização automática
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-white/80">
+              <RefreshCw size={16} className={pedidosQuery.isFetching ? "animate-spin" : ""} />
+              Atualização automática
+            </div>
+            <button
+              type="button"
+              onClick={ativarSom}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
+                somAtivo ? "bg-green-500 text-white" : "bg-white text-[#2D5016] hover:bg-white/90"
+              }`}
+            >
+              {somAtivo ? <Volume2 size={17} /> : <VolumeX size={17} />}
+              {somAtivo ? "Som ativado" : "Ativar som"}
+            </button>
           </div>
         </header>
 
@@ -71,7 +130,12 @@ export default function PainelPedidos() {
               const config = statusConfig[pedido.status as keyof typeof statusConfig] ?? statusConfig.pendente;
               const Icone = config.icone;
               return (
-                <article key={pedido.id} className={`overflow-hidden rounded-2xl border-2 shadow-sm ${config.cor}`}>
+                <article
+                  key={pedido.id}
+                  className={`overflow-hidden rounded-2xl border-2 shadow-sm ${config.cor} ${
+                    pedido.status === "pronto" ? "animate-pulse ring-4 ring-green-400 ring-offset-2" : ""
+                  }`}
+                >
                   <div className="flex items-center justify-between gap-3 border-b border-black/10 px-5 py-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
