@@ -631,17 +631,6 @@ export default function Home() {
                     </p>
                   </div>
 
-                  <div>
-                    <Label className="text-sm font-semibold text-foreground">Forma de pagamento</Label>
-                    <Select value={formaPagamento} onValueChange={v => setFormaPagamento(v as "dinheiro" | "pix" | "cartao")}>
-                      <SelectTrigger className="mt-2 h-11 border-border"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                        <SelectItem value="pix">Pix</SelectItem>
-                        <SelectItem value="cartao">Cartão</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
 
                 <div className="pt-5 border-t border-border">
@@ -712,9 +701,18 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Pagamento:</span>
-                  <span className="font-medium">{formaPagamento === "pix" ? "Pix" : formaPagamento === "cartao" ? "Cartão" : "Dinheiro"}</span>
+                <div className="pt-3 border-t border-border">
+                  <Label className="text-sm font-semibold text-foreground">Forma de pagamento</Label>
+                  <Select value={formaPagamento} onValueChange={v => setFormaPagamento(v as "dinheiro" | "pix" | "cartao")}>
+                    <SelectTrigger className="mt-2 h-11 bg-white border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                      <SelectItem value="pix">Pix</SelectItem>
+                      <SelectItem value="cartao">Cartão</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
