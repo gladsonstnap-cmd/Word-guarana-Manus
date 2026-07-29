@@ -109,7 +109,6 @@ export const appRouter = router({
           tamanho: pedido.tamanho,
           sabor: pedido.sabor,
           quantidade: pedido.quantidade,
-          formaPagamento: pedido.formaPagamento,
           status: pedido.status,
           createdAt: pedido.createdAt,
           itens: pedido.itens,
