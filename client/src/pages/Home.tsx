@@ -70,6 +70,7 @@ type CopoPedido = {
   quantidade: number;
   valor: number;
   valorPromocional?: number | null;
+  complementos: string[];
 };
 
 interface Pedido {
@@ -148,9 +149,11 @@ export default function Home() {
       quantidade,
       valor: promocao ?? valorCopoAtual * quantidade,
       valorPromocional: promocao,
+      complementos: [...complementosSelecionados],
     }]);
     setQuantidade(1);
     setValorPromocional("");
+    setComplementosSelecionados([]);
     toast.success("Copo adicionado ao pedido");
   };
 
@@ -176,6 +179,7 @@ export default function Home() {
 
     try {
       const primeiroCopo = coposPedido[0];
+      const todosComplementos = Array.from(new Set(coposPedido.flatMap(c => c.complementos)));
       const novoPedido = await criarPedidoMutation.mutateAsync({
         cliente,
         tamanho: primeiroCopo.tamanho,
@@ -184,11 +188,11 @@ export default function Home() {
         copos: coposPedido,
         formaPagamento,
         valor,
-        itens: complementosSelecionados,
+        itens: todosComplementos,
       });
 
       if (novoPedido) {
-        setPedidos([...pedidos, { ...novoPedido, itens: complementosSelecionados } as Pedido]);
+        setPedidos([...pedidos, { ...novoPedido, itens: todosComplementos } as Pedido]);
         setCliente("");
         setComplementosSelecionados([]);
         setSabor("Tradicional");
@@ -449,9 +453,16 @@ export default function Home() {
 
       <div className="space-y-2 text-sm mb-3">
         {(p.copos?.length ?? 0) > 0 ? p.copos?.map((copo, index) => (
-          <div key={index} className="flex justify-between gap-3">
-            <span className="text-muted-foreground">{copo.quantidade}x {copo.sabor}</span>
-            <span className="font-medium">{copo.tamanho}ml</span>
+          <div key={index} className="rounded-md border p-2">
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">{copo.quantidade}x {copo.sabor}</span>
+              <span className="font-medium">{copo.tamanho}ml</span>
+            </div>
+            {(copo.complementos?.length ?? 0) > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Complementos: {copo.complementos.join(", ")}
+              </p>
+            )}
           </div>
         )) : (
           <>
@@ -475,7 +486,7 @@ export default function Home() {
             {p.formaPagamento === "pix" ? "Pix" : p.formaPagamento === "cartao" ? "Cartão" : "Dinheiro"}
           </span>
         </div>
-        {(p.itens?.length ?? 0) > 0 && (
+        {(p.copos?.length ?? 0) === 0 && (p.itens?.length ?? 0) > 0 && (
           <div className="flex justify-between gap-3">
             <span className="text-muted-foreground">Complementos:</span>
             <span className="font-medium text-right">{p.itens?.join(", ")}</span>
@@ -633,16 +644,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={adicionarCopo}
-                  className="w-full border-[#2D5016] text-[#2D5016] hover:bg-[#2D5016]/5"
-                >
-                  <Plus size={18} className="mr-2" />
-                  Adicionar este copo ao pedido
-                </Button>
-
                 <div className="pt-5 border-t border-border">
                   <div className="flex items-center justify-between mb-4">
                     <Label className="text-sm font-semibold text-foreground">Complementos</Label>
@@ -662,6 +663,16 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={adicionarCopo}
+                  className="w-full border-[#2D5016] text-[#2D5016] hover:bg-[#2D5016]/5"
+                >
+                  <Plus size={18} className="mr-2" />
+                  Adicionar este copo ao pedido
+                </Button>
               </div>
             </Card>
           </div>
@@ -686,6 +697,9 @@ export default function Home() {
                           {copo.tamanho}ml · {copo.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                           {copo.valorPromocional ? " · Promoção" : ""}
                         </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Complementos: {copo.complementos.length > 0 ? copo.complementos.join(", ") : "Nenhum"}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -701,14 +715,6 @@ export default function Home() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Pagamento:</span>
                   <span className="font-medium">{formaPagamento === "pix" ? "Pix" : formaPagamento === "cartao" ? "Cartão" : "Dinheiro"}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Complementos:</span>
-                  <span className="font-medium text-right max-w-[65%]">
-                    {complementosSelecionados.length > 0
-                      ? complementosSelecionados.join(", ")
-                      : "Nenhum"}
-                  </span>
                 </div>
               </div>
 
