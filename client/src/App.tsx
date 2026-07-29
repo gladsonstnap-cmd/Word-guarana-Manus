@@ -20,7 +20,6 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/historico"}>{isAdmin ? <Historico /> : <Home />}</Route>
       <Route path={"/detalhes-fechamento"}>{isAdmin ? <DetalhesFechamento /> : <Home />}</Route>
-      <Route path={"/empresas"}>{user?.platformAdmin ? <Empresas /> : <Home />}</Route>
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
@@ -35,6 +34,31 @@ function Router() {
 
 function App() {
   const { user, loading, logout } = useAuth();
+  if (window.location.pathname.startsWith("/admin-plataforma")) {
+    if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando...</div>;
+    return (
+      <ErrorBoundary>
+        <ThemeProvider defaultTheme="light">
+          <TooltipProvider>
+            <Toaster />
+            {!user ? (
+              <Login plataforma />
+            ) : user.platformAdmin ? (
+              <Empresas />
+            ) : (
+              <div className="min-h-screen grid place-items-center bg-[#F7FAF5] p-4">
+                <div className="max-w-md rounded-2xl border bg-white p-8 text-center shadow-lg">
+                  <h1 className="text-2xl font-bold text-[#C85A54]">Acesso não autorizado</h1>
+                  <p className="mt-3 text-muted-foreground">Esta área é exclusiva do administrador da plataforma.</p>
+                  <button className="mt-6 rounded-lg bg-[#2D5016] px-5 py-2 font-semibold text-white" onClick={() => logout()}>Sair</button>
+                </div>
+              </div>
+            )}
+          </TooltipProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    );
+  }
   if (window.location.pathname === "/painel-pedidos") {
     return (
       <ErrorBoundary>

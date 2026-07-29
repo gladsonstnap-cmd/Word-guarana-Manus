@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { setSessionToken } from "@/lib/auth-session";
 
-export default function Login() {
+export default function Login({ plataforma = false }: { plataforma?: boolean }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const utils = trpc.useUtils();
@@ -30,8 +30,10 @@ export default function Login() {
       <Card className="w-full max-w-sm p-7 shadow-lg">
         <div className="text-center mb-7">
           <div className="text-5xl mb-2">🥤</div>
-          <h1 className="text-3xl font-bold text-[#2D5016]">World Guaraná</h1>
-          <p className="text-sm text-muted-foreground mt-2">Entre para acessar o sistema</p>
+          <h1 className="text-3xl font-bold text-[#2D5016]">{plataforma ? "Administração da Plataforma" : "World Guaraná"}</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            {plataforma ? "Acesso exclusivo do proprietário" : "Entre para acessar o sistema"}
+          </p>
         </div>
         <form onSubmit={submit} className="space-y-5">
           <div>

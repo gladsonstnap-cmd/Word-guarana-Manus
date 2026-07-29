@@ -507,11 +507,6 @@ export default function Home() {
 
       <main className="container mx-auto px-4 py-6 md:py-8">
         <div className="flex justify-end items-center gap-3 mb-5">
-          {user?.platformAdmin ? (
-            <Button variant="outline" size="sm" onClick={() => navigate("/empresas")} className="gap-2">
-              <BarChart3 size={16} /> Estabelecimentos
-            </Button>
-          ) : null}
           <span className="text-sm text-muted-foreground">
             {user?.name || "Usuário"} · {isAdmin ? "Administrador" : "Usuário comum"}
           </span>

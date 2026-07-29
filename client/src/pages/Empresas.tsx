@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Building2, Plus } from "lucide-react";
+import { Building2, LogOut, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 const dataInput = (value: Date | string | null) => {
@@ -15,7 +15,7 @@ const dataInput = (value: Date | string | null) => {
 };
 
 export default function Empresas() {
-  const [, navigate] = useLocation();
+  const { logout } = useAuth();
   const utils = trpc.useUtils();
   const empresas = trpc.empresas.listar.useQuery();
   const [nome, setNome] = useState("");
@@ -55,7 +55,7 @@ export default function Empresas() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Administração da plataforma</p>
             <h1 className="mt-1 text-3xl font-bold text-[#2D5016]">Estabelecimentos e assinaturas</h1>
           </div>
-          <Button variant="outline" onClick={() => navigate("/")}><ArrowLeft size={17} className="mr-2" />Voltar</Button>
+          <Button variant="outline" onClick={() => logout()}><LogOut size={17} className="mr-2" />Sair</Button>
         </div>
 
         <Card className="p-5 md:p-6">
