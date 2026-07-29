@@ -103,6 +103,7 @@ export const appRouter = router({
           sabor: z.string(),
           quantidade: z.number().int().min(1),
           valor: z.number().positive(),
+          valorPromocional: z.number().positive().nullable().optional(),
         })).min(1),
         formaPagamento: z.enum(["dinheiro", "pix", "cartao"]).default("dinheiro"),
         valor: z.number().positive(),
