@@ -1,9 +1,9 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, platformAdminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser, ensureDefaultEmpresa } from "./db";
+import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser, ensureDefaultEmpresa, ensurePlatformAdmin, getEmpresaById, listEmpresas, createEmpresa, updateEmpresa } from "./db";
 import { storagePut } from "./storage";
 import { ENV } from "./_core/env";
 import { createLocalSession, hashPassword, verifyPassword } from "./localAuth";
@@ -11,7 +11,10 @@ import { TRPCError } from "@trpc/server";
 
 async function ensureInitialAdmin() {
   await ensureDefaultEmpresa();
-  if (await countAppUsers()) return;
+  if (await countAppUsers()) {
+    if (ENV.adminUsername) await ensurePlatformAdmin(ENV.adminUsername);
+    return;
+  }
   if (!ENV.adminUsername || !ENV.adminPassword) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Administrador inicial não configurado" });
   }
@@ -22,6 +25,7 @@ async function ensureInitialAdmin() {
     role: "admin",
     active: 1,
     empresaId: 1,
+    platformAdmin: 1,
   });
 }
 
@@ -29,7 +33,13 @@ export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(opts => opts.ctx.user ? ({
+      ...opts.ctx.user,
+      empresaNome: opts.ctx.empresa?.nome ?? "",
+      assinaturaStatus: opts.ctx.empresa?.assinaturaStatus ?? "suspensa",
+      testeAte: opts.ctx.empresa?.testeAte ?? null,
+      assinaturaAte: opts.ctx.empresa?.assinaturaAte ?? null,
+    }) : null),
     login: publicProcedure.input(z.object({
       username: z.string().min(1).max(50),
       password: z.string().min(1).max(200),
@@ -39,8 +49,30 @@ export const appRouter = router({
       if (!user?.active || !(await verifyPassword(input.password, user.passwordHash))) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Usuário ou senha inválidos" });
       }
+      const empresa = await getEmpresaById(user.empresaId);
+      const agora = new Date();
+      const testeExpirado = empresa?.assinaturaStatus === "teste" && empresa.testeAte && empresa.testeAte < agora;
+      const assinaturaExpirada = empresa?.assinaturaStatus === "ativa" && empresa.assinaturaAte && empresa.assinaturaAte < agora;
+      if (!user.platformAdmin && (
+        !empresa ||
+        empresa.assinaturaStatus === "atrasada" ||
+        empresa.assinaturaStatus === "suspensa" ||
+        testeExpirado ||
+        assinaturaExpirada
+      )) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Assinatura vencida ou suspensa. Entre em contato com o suporte." });
+      }
       const { passwordHash: _, ...safeUser } = user;
-      return { user: safeUser, token: await createLocalSession(user.id) };
+      return {
+        user: {
+          ...safeUser,
+          empresaNome: empresa?.nome ?? "",
+          assinaturaStatus: empresa?.assinaturaStatus ?? "suspensa",
+          testeAte: empresa?.testeAte ?? null,
+          assinaturaAte: empresa?.assinaturaAte ?? null,
+        },
+        token: await createLocalSession(user.id),
+      };
     }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
@@ -48,6 +80,50 @@ export const appRouter = router({
       return {
         success: true,
       } as const;
+    }),
+  }),
+  empresas: router({
+    listar: platformAdminProcedure.query(() => listEmpresas()),
+    criar: platformAdminProcedure.input(z.object({
+      nome: z.string().min(2).max(120),
+      slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, "Identificador inválido"),
+      plano: z.enum(["basico", "profissional", "premium"]),
+      diasTeste: z.number().int().min(0).max(90).default(7),
+      adminNome: z.string().min(2).max(100),
+      adminUsername: z.string().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/),
+      adminPassword: z.string().min(6).max(200),
+    })).mutation(async ({ input }) => {
+      if (await getAppUserByUsername(input.adminUsername)) {
+        throw new TRPCError({ code: "CONFLICT", message: "Nome de usuário já existe" });
+      }
+      const testeAte = new Date();
+      testeAte.setDate(testeAte.getDate() + input.diasTeste);
+      return createEmpresa({
+        nome: input.nome,
+        slug: input.slug,
+        plano: input.plano,
+        assinaturaStatus: input.diasTeste > 0 ? "teste" : "suspensa",
+        testeAte: input.diasTeste > 0 ? testeAte : null,
+      }, {
+        name: input.adminNome,
+        username: input.adminUsername,
+        passwordHash: await hashPassword(input.adminPassword),
+      });
+    }),
+    atualizar: platformAdminProcedure.input(z.object({
+      id: z.number().int().positive(),
+      nome: z.string().min(2).max(120).optional(),
+      plano: z.enum(["basico", "profissional", "premium"]).optional(),
+      assinaturaStatus: z.enum(["teste", "ativa", "atrasada", "suspensa"]).optional(),
+      testeAte: z.string().nullable().optional(),
+      assinaturaAte: z.string().nullable().optional(),
+    })).mutation(({ input }) => {
+      const { id, testeAte, assinaturaAte, ...rest } = input;
+      return updateEmpresa(id, {
+        ...rest,
+        ...(testeAte === undefined ? {} : { testeAte: testeAte ? new Date(`${testeAte}T23:59:59`) : null }),
+        ...(assinaturaAte === undefined ? {} : { assinaturaAte: assinaturaAte ? new Date(`${assinaturaAte}T23:59:59`) : null }),
+      });
     }),
   }),
   usuarios: router({

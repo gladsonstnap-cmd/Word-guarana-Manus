@@ -47,6 +47,7 @@ export const appUsers = mysqlTable("appUsers", {
   name: varchar("name", { length: 100 }).notNull(),
   passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  platformAdmin: int("platformAdmin").default(0).notNull(),
   active: int("active").default(1).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
