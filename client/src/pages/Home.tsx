@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, Clock, Flame, CheckCircle, Truck, Lock, Upload, FileText, LogOut, BarChart3 } from "lucide-react";
+import { Trash2, Plus, Clock, Flame, CheckCircle, Truck, Lock, FileText, LogOut, BarChart3 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import UserManagement from "@/components/UserManagement";
@@ -118,7 +118,6 @@ export default function Home() {
   const [complementosSelecionados, setComplementosSelecionados] = useState<string[]>([]);
   const [coberturasSelecionadas, setCoberturasSelecionadas] = useState<string[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [uploadingIds, setUploadingIds] = useState<number[]>([]);
   
   // Filtros e busca
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -134,7 +133,6 @@ export default function Home() {
   const criarPedidoMutation = trpc.pedidos.criar.useMutation();
   const atualizarStatusMutation = trpc.pedidos.atualizarStatus.useMutation();
   const deletarPedidoMutation = trpc.pedidos.deletar.useMutation();
-  const uploadImagemMutation = trpc.pedidos.uploadImagem.useMutation();
   const gerarPDFQuery = trpc.caixa.gerarPDF.useQuery({ data: dataSelecionada }, { enabled: false });
   const pedidosDoDiaQuery = trpc.pedidos.obterPorData.useQuery(
     { data: dataSelecionada },
@@ -275,46 +273,6 @@ export default function Home() {
     }
   };
 
-  const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>, pedidoId: number) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingIds([...uploadingIds, pedidoId]);
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = event.target?.result as string;
-        try {
-          const pedidoAtualizado = await uploadImagemMutation.mutateAsync({
-            id: pedidoId,
-            imagem: base64,
-            mimeType: file.type,
-          });
-
-          if (pedidoAtualizado) {
-            setPedidos(
-              pedidos.map((p) =>
-                p.id === pedidoId ? { ...p, imagemUrl: (pedidoAtualizado as any).imagemUrl } : p
-              )
-            );
-            toast.success("Imagem enviada com sucesso!");
-          }
-        } catch (error) {
-          toast.error("Erro ao fazer upload da imagem");
-          console.error(error);
-        } finally {
-          setUploadingIds(prev => prev.filter(id => id !== pedidoId));
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      toast.error("Erro ao processar imagem");
-      console.error(error);
-      setUploadingIds(prev => prev.filter(id => id !== pedidoId));
-    }
-  };
-
   const gerarRelatorio = async () => {
     try {
       const resultado = await gerarPDFQuery.refetch();
@@ -425,25 +383,6 @@ export default function Home() {
             alt="Pedido"
             className="w-full h-32 object-cover"
           />
-        </div>
-      )}
-
-      {/* Upload de Imagem */}
-      {!isEncerrado && (
-        <div className="mb-3">
-          <label className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-[#F4A460] rounded-lg cursor-pointer hover:bg-[#F4A460]/5 transition-colors">
-            <Upload size={14} className="text-[#F4A460]" />
-            <span className="text-xs text-muted-foreground">
-              {uploadingIds.includes(p.id) ? "Enviando..." : "Adicionar foto"}
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleUploadImagem(e, p.id)}
-              disabled={uploadingIds.includes(p.id)}
-              className="hidden"
-            />
-          </label>
         </div>
       )}
 
