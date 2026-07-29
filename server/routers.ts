@@ -105,6 +105,7 @@ export const appRouter = router({
           valor: z.number().positive(),
           valorPromocional: z.number().positive().nullable().optional(),
           complementos: z.array(z.string()).default([]),
+          coberturas: z.array(z.string()).default([]),
         })).min(1),
         formaPagamento: z.enum(["dinheiro", "pix", "cartao"]).default("dinheiro"),
         valor: z.number().positive(),

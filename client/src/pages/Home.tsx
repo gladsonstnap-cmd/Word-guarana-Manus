@@ -63,6 +63,19 @@ const complementos = [
   "Amendoim Colorido",
 ];
 
+const coberturas = [
+  "Caramelo",
+  "Chocolate",
+  "Doce de Leite",
+  "Chocolate Meio Amargo",
+  "Leite Condensado",
+  "Limão",
+  "Menta",
+  "Morango",
+  "Tutti-Frutti",
+  "Uva",
+];
+
 type StatusPedido = "pendente" | "em-preparo" | "pronto" | "entregue";
 type CopoPedido = {
   tamanho: string;
@@ -71,6 +84,7 @@ type CopoPedido = {
   valor: number;
   valorPromocional?: number | null;
   complementos: string[];
+  coberturas: string[];
 };
 
 interface Pedido {
@@ -102,6 +116,7 @@ export default function Home() {
   const [coposPedido, setCoposPedido] = useState<CopoPedido[]>([]);
   const [formaPagamento, setFormaPagamento] = useState<"dinheiro" | "pix" | "cartao">("dinheiro");
   const [complementosSelecionados, setComplementosSelecionados] = useState<string[]>([]);
+  const [coberturasSelecionadas, setCoberturasSelecionadas] = useState<string[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [uploadingIds, setUploadingIds] = useState<number[]>([]);
   
@@ -150,11 +165,23 @@ export default function Home() {
       valor: promocao ?? valorCopoAtual * quantidade,
       valorPromocional: promocao,
       complementos: [...complementosSelecionados],
+      coberturas: [...coberturasSelecionadas],
     }]);
     setQuantidade(1);
     setValorPromocional("");
     setComplementosSelecionados([]);
+    setCoberturasSelecionadas([]);
     toast.success("Copo adicionado ao pedido");
+  };
+
+  const handleCoberturaChange = (cobertura: string, checked: boolean) => {
+    if (checked) {
+      setCoberturasSelecionadas([...coberturasSelecionadas, cobertura]);
+    } else {
+      setCoberturasSelecionadas(
+        coberturasSelecionadas.filter((c) => c !== cobertura)
+      );
+    }
   };
 
   const handleComplementoChange = (complemento: string, checked: boolean) => {
@@ -195,6 +222,7 @@ export default function Home() {
         setPedidos([...pedidos, { ...novoPedido, itens: todosComplementos } as Pedido]);
         setCliente("");
         setComplementosSelecionados([]);
+        setCoberturasSelecionadas([]);
         setSabor("Tradicional");
         setTamanho("500");
         setQuantidade(1);
@@ -463,6 +491,11 @@ export default function Home() {
                 Complementos: {copo.complementos.join(", ")}
               </p>
             )}
+            {(copo.coberturas?.length ?? 0) > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Coberturas: {copo.coberturas.join(", ")}
+              </p>
+            )}
           </div>
         )) : (
           <>
@@ -653,6 +686,26 @@ export default function Home() {
                   </div>
                 </div>
 
+                <div className="pt-5 border-t border-border">
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-sm font-semibold text-foreground">Coberturas</Label>
+                    <span className="text-xs text-muted-foreground">{coberturasSelecionadas.length} selecionada(s)</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {coberturas.map((c) => (
+                      <label key={c} htmlFor={`cobertura-${c}`} className="flex items-center gap-3 rounded-lg border border-transparent p-2.5 hover:border-[#F4A460]/60 hover:bg-[#F4A460]/5 transition-colors">
+                        <Checkbox
+                          id={`cobertura-${c}`}
+                          checked={coberturasSelecionadas.includes(c)}
+                          onCheckedChange={(checked) => handleCoberturaChange(c, checked as boolean)}
+                          className="border-border"
+                        />
+                        <span className="text-sm cursor-pointer text-foreground">{c}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 <Button
                   type="button"
                   variant="outline"
@@ -688,6 +741,9 @@ export default function Home() {
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           Complementos: {copo.complementos.length > 0 ? copo.complementos.join(", ") : "Nenhum"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Coberturas: {(copo.coberturas?.length ?? 0) > 0 ? copo.coberturas.join(", ") : "Nenhuma"}
                         </p>
                       </div>
                       <button
