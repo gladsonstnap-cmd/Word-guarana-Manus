@@ -92,6 +92,37 @@ export const appRouter = router({
   }),
 
   pedidos: router({
+    painelPublico: publicProcedure.query(async () => {
+      const hoje = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Fortaleza",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      const pedidosDoDia = await obterPedidosPorData(hoje);
+
+      return pedidosDoDia
+        .filter(pedido => !pedido.encerrado)
+        .map(pedido => ({
+          id: pedido.id,
+          cliente: pedido.cliente.trim().split(/\s+/)[0],
+          tamanho: pedido.tamanho,
+          sabor: pedido.sabor,
+          quantidade: pedido.quantidade,
+          formaPagamento: pedido.formaPagamento,
+          status: pedido.status,
+          createdAt: pedido.createdAt,
+          itens: pedido.itens,
+          copos: (pedido.copos ?? []).map(copo => ({
+            tamanho: copo.tamanho,
+            sabor: copo.sabor,
+            quantidade: copo.quantidade,
+            complementos: copo.complementos ?? [],
+            coberturas: copo.coberturas ?? [],
+          })),
+        }));
+    }),
+
     criar: protectedProcedure
       .input(z.object({
         cliente: z.string().min(1, "Nome do cliente é obrigatório"),

@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Historico from "./pages/Historico";
 import DetalhesFechamento from "./pages/DetalhesFechamento";
+import PainelPedidos from "./pages/PainelPedidos";
 import Login from "./pages/Login";
 import { useAuth } from "./_core/hooks/useAuth";
 
@@ -32,6 +33,17 @@ function Router() {
 
 function App() {
   const { user, loading } = useAuth();
+  if (window.location.pathname === "/painel-pedidos") {
+    return (
+      <ErrorBoundary>
+        <ThemeProvider defaultTheme="light">
+          <TooltipProvider>
+            <PainelPedidos />
+          </TooltipProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    );
+  }
   if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Carregando...</div>;
   if (!user) return <Login />;
 
