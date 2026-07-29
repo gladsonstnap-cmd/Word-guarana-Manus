@@ -476,9 +476,9 @@ export default function Home() {
           </span>
         </div>
         {(p.itens?.length ?? 0) > 0 && (
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-3">
             <span className="text-muted-foreground">Complementos:</span>
-            <span className="font-medium">{p.itens?.length}</span>
+            <span className="font-medium text-right">{p.itens?.join(", ")}</span>
           </div>
         )}
       </div>
@@ -704,8 +704,10 @@ export default function Home() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Complementos:</span>
-                  <span className="font-medium">
-                    {complementosSelecionados.length}
+                  <span className="font-medium text-right max-w-[65%]">
+                    {complementosSelecionados.length > 0
+                      ? complementosSelecionados.join(", ")
+                      : "Nenhum"}
                   </span>
                 </div>
               </div>
