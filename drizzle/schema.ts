@@ -25,8 +25,24 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+export const empresas = mysqlTable("empresas", {
+  id: int("id").autoincrement().primaryKey(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  slug: varchar("slug", { length: 80 }).notNull().unique(),
+  plano: mysqlEnum("plano", ["basico", "profissional", "premium"]).default("basico").notNull(),
+  assinaturaStatus: mysqlEnum("assinaturaStatus", ["teste", "ativa", "atrasada", "suspensa"]).default("teste").notNull(),
+  testeAte: timestamp("testeAte"),
+  assinaturaAte: timestamp("assinaturaAte"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Empresa = typeof empresas.$inferSelect;
+export type InsertEmpresa = typeof empresas.$inferInsert;
+
 export const appUsers = mysqlTable("appUsers", {
   id: int("id").autoincrement().primaryKey(),
+  empresaId: int("empresaId").default(1).notNull(),
   username: varchar("username", { length: 50 }).notNull().unique(),
   name: varchar("name", { length: 100 }).notNull(),
   passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
@@ -42,6 +58,7 @@ export type InsertAppUser = typeof appUsers.$inferInsert;
 // Tabela de Pedidos
 export const pedidos = mysqlTable("pedidos", {
   id: int("id").autoincrement().primaryKey(),
+  empresaId: int("empresaId").default(1).notNull(),
   cliente: varchar("cliente", { length: 100 }).notNull(),
   tamanho: varchar("tamanho", { length: 10 }).notNull(),
   sabor: varchar("sabor", { length: 100 }).notNull(),
@@ -82,6 +99,7 @@ export type InsertItemPedido = typeof itensPedido.$inferInsert;
 // Tabela de Fechamento de Caixa
 export const fechamentoCaixa = mysqlTable("fechamentoCaixa", {
   id: int("id").autoincrement().primaryKey(),
+  empresaId: int("empresaId").default(1).notNull(),
   data: varchar("data", { length: 10 }).notNull(), // YYYY-MM-DD
   totalPedidos: int("totalPedidos").notNull(),
   faturamentoTotal: int("faturamentoTotal").notNull(), // em reais
