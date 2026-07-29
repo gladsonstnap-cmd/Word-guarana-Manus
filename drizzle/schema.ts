@@ -52,6 +52,7 @@ export const pedidos = mysqlTable("pedidos", {
     quantidade: number;
     valor: number;
     valorPromocional?: number | null;
+    complementos: string[];
   }>>(),
   formaPagamento: mysqlEnum("formaPagamento", ["dinheiro", "pix", "cartao"]).default("dinheiro").notNull(),
   valor: int("valor").notNull(),

@@ -242,8 +242,16 @@ export default function DetalhesFechamento() {
                 {pedidosFiltrados.map((pedido) => (
                   <tr key={pedido.id} className="border-b border-border hover:bg-gray-50">
                     <td className="py-3 px-4 font-medium">{pedido.cliente}</td>
-                    <td className="py-3 px-4">{pedido.sabor}</td>
-                    <td className="py-3 px-4 text-center">{pedido.tamanho}ml</td>
+                    <td className="py-3 px-4">
+                      {pedido.copos.length > 0
+                        ? pedido.copos.map(copo => `${copo.quantidade}x ${copo.sabor}`).join(", ")
+                        : pedido.sabor}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {pedido.copos.length > 0
+                        ? pedido.copos.map(copo => `${copo.tamanho}ml`).join(", ")
+                        : `${pedido.tamanho}ml`}
+                    </td>
                     <td className="py-3 px-4 text-center">
                       <span
                         className="px-3 py-1 rounded-full text-white text-xs font-semibold"
@@ -254,7 +262,11 @@ export default function DetalhesFechamento() {
                     </td>
                     <td className="py-3 px-4 text-right font-semibold">R$ {pedido.valor.toFixed(2)}</td>
                     <td className="py-3 px-4 text-sm text-muted-foreground">
-                      {pedido.itens.length > 0 ? pedido.itens.join(", ") : "-"}
+                      {pedido.copos.length > 0
+                        ? pedido.copos.map(copo =>
+                            `${copo.sabor}: ${copo.complementos?.length ? copo.complementos.join(", ") : "sem complementos"}`
+                          ).join(" | ")
+                        : pedido.itens.length > 0 ? pedido.itens.join(", ") : "-"}
                     </td>
                   </tr>
                 ))}
