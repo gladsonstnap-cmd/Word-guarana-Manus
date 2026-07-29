@@ -64,7 +64,13 @@ const complementos = [
 ];
 
 type StatusPedido = "pendente" | "em-preparo" | "pronto" | "entregue";
-type CopoPedido = { tamanho: string; sabor: string; quantidade: number; valor: number };
+type CopoPedido = {
+  tamanho: string;
+  sabor: string;
+  quantidade: number;
+  valor: number;
+  valorPromocional?: number | null;
+};
 
 interface Pedido {
   id: number;
@@ -91,6 +97,7 @@ export default function Home() {
   const [tamanho, setTamanho] = useState("500");
   const [sabor, setSabor] = useState("Tradicional");
   const [quantidade, setQuantidade] = useState(1);
+  const [valorPromocional, setValorPromocional] = useState("");
   const [coposPedido, setCoposPedido] = useState<CopoPedido[]>([]);
   const [formaPagamento, setFormaPagamento] = useState<"dinheiro" | "pix" | "cartao">("dinheiro");
   const [complementosSelecionados, setComplementosSelecionados] = useState<string[]>([]);
@@ -130,13 +137,20 @@ export default function Home() {
   const valor = coposPedido.reduce((total, copo) => total + copo.valor, 0);
 
   const adicionarCopo = () => {
+    const promocao = valorPromocional.trim() === "" ? null : Number(valorPromocional);
+    if (promocao !== null && (!Number.isInteger(promocao) || promocao <= 0)) {
+      toast.error("Informe o valor promocional em reais inteiros");
+      return;
+    }
     setCoposPedido(prev => [...prev, {
       tamanho,
       sabor,
       quantidade,
-      valor: valorCopoAtual,
+      valor: promocao ?? valorCopoAtual * quantidade,
+      valorPromocional: promocao,
     }]);
     setQuantidade(1);
+    setValorPromocional("");
     toast.success("Copo adicionado ao pedido");
   };
 
@@ -180,6 +194,7 @@ export default function Home() {
         setSabor("Tradicional");
         setTamanho("500");
         setQuantidade(1);
+        setValorPromocional("");
         setCoposPedido([]);
         setFormaPagamento("dinheiro");
         toast.success(`Pedido de ${cliente} salvo com sucesso!`);
@@ -329,6 +344,7 @@ export default function Home() {
   const pedidosAtivos = pedidosFiltrados.filter(p => !p.encerrado);
   const pedidosEncerrados = pedidosFiltrados.filter(p => p.encerrado);
   const faturamentoDiario = pedidosDoMovimento.reduce((acc, p) => acc + p.valor, 0);
+  const pedidosEmAndamentoDoDia = pedidosDoMovimento.filter(p => !p.encerrado).length;
   const pedidosDoDia = (pedidosDoDiaQuery.data || []) as Pedido[];
   const pedidosEntreguesDoDia = pedidosDoDia.filter(p => p.status === "entregue").length;
   const faturamentoDoDia = pedidosDoDia.reduce((acc, p) => acc + p.valor, 0);
@@ -586,6 +602,25 @@ export default function Home() {
                   </div>
 
                   <div>
+                    <Label htmlFor="valor-promocional" className="text-sm font-semibold text-foreground">
+                      Valor da promoção (opcional)
+                    </Label>
+                    <Input
+                      id="valor-promocional"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={valorPromocional}
+                      onChange={(e) => setValorPromocional(e.target.value)}
+                      placeholder={`Normal: ${(valorCopoAtual * quantidade).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`}
+                      className="mt-2 h-11 border-border focus:ring-[#2D5016]"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Deixe vazio para multiplicar o preço pela quantidade.
+                    </p>
+                  </div>
+
+                  <div>
                     <Label className="text-sm font-semibold text-foreground">Forma de pagamento</Label>
                     <Select value={formaPagamento} onValueChange={v => setFormaPagamento(v as "dinheiro" | "pix" | "cartao")}>
                       <SelectTrigger className="mt-2 h-11 border-border"><SelectValue /></SelectTrigger>
@@ -647,7 +682,10 @@ export default function Home() {
                     <div className="flex justify-between gap-2">
                       <div>
                         <p className="font-semibold">{copo.quantidade}x {copo.sabor}</p>
-                        <p className="text-xs text-muted-foreground">{copo.tamanho}ml · {copo.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {copo.tamanho}ml · {copo.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          {copo.valorPromocional ? " · Promoção" : ""}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -788,16 +826,16 @@ export default function Home() {
           )}
 
           {/* Resumo Total */}
-          {isAdmin && pedidos.length > 0 && (
+          {isAdmin && (
             <Card className="mt-6 p-6 bg-gradient-to-r from-[#2D5016] to-[#1A3A0A] text-white border-0">
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <p className="text-white/80 text-sm">Total de Pedidos</p>
-                  <p className="text-3xl font-bold">{pedidos.length}</p>
+                  <p className="text-white/80 text-sm">Pedidos do Dia</p>
+                  <p className="text-3xl font-bold">{pedidosDoMovimento.length}</p>
                 </div>
                 <div>
                   <p className="text-white/80 text-sm">Em Andamento</p>
-                  <p className="text-3xl font-bold">{pedidosAtivos.length}</p>
+                  <p className="text-3xl font-bold">{pedidosEmAndamentoDoDia}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-white/80 text-sm">Faturamento do Dia</p>
