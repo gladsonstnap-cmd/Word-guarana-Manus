@@ -23,12 +23,6 @@ const statusConfig = {
   },
 } as const;
 
-const formaPagamento = {
-  dinheiro: "Dinheiro",
-  pix: "Pix",
-  cartao: "Cartão",
-} as const;
-
 export default function PainelPedidos() {
   const [somAtivo, setSomAtivo] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -178,11 +172,6 @@ export default function PainelPedidos() {
                         )}
                       </div>
                     )}
-
-                    <div className="flex justify-between border-t border-black/10 pt-3 text-sm">
-                      <span className="text-muted-foreground">Pagamento</span>
-                      <span className="font-semibold">{formaPagamento[pedido.formaPagamento]}</span>
-                    </div>
                   </div>
                 </article>
               );
