@@ -1,6 +1,6 @@
 import { eq, and, desc, gte, lt, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, empresas, appUsers, InsertAppUser, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
+import { InsertUser, users, empresas, InsertEmpresa, appUsers, InsertAppUser, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -114,6 +114,55 @@ export async function ensureDefaultEmpresa() {
     assinaturaStatus: "ativa",
   });
   return (await db.select().from(empresas).where(eq(empresas.id, 1)).limit(1))[0];
+}
+
+export async function ensurePlatformAdmin(username: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  await db.update(appUsers)
+    .set({ platformAdmin: 1 })
+    .where(eq(appUsers.username, username.toLowerCase()));
+}
+
+export async function getEmpresaById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(empresas).where(eq(empresas.id, id)).limit(1))[0];
+}
+
+export async function listEmpresas() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(empresas).orderBy(empresas.nome);
+}
+
+export async function createEmpresa(
+  empresa: InsertEmpresa,
+  admin: Pick<InsertAppUser, "username" | "name" | "passwordHash">
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  const result = await db.insert(empresas).values(empresa);
+  const empresaId = (result as any)[0].insertId as number;
+  await db.insert(appUsers).values({
+    ...admin,
+    username: admin.username.toLowerCase(),
+    empresaId,
+    role: "admin",
+    platformAdmin: 0,
+    active: 1,
+  });
+  return getEmpresaById(empresaId);
+}
+
+export async function updateEmpresa(
+  id: number,
+  data: Partial<Pick<InsertEmpresa, "nome" | "plano" | "assinaturaStatus" | "testeAte" | "assinaturaAte">>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  await db.update(empresas).set(data).where(eq(empresas.id, id));
+  return getEmpresaById(id);
 }
 
 export async function listAppUsers(empresaId: number) {
