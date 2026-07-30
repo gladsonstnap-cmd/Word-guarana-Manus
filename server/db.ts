@@ -133,7 +133,17 @@ export async function getEmpresaById(id: number) {
 export async function listEmpresas() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(empresas).orderBy(empresas.nome);
+  const lista = await db.select().from(empresas).orderBy(empresas.nome);
+  return Promise.all(lista.map(async empresa => ({
+    ...empresa,
+    contas: await db.select({
+      id: appUsers.id,
+      name: appUsers.name,
+      username: appUsers.username,
+      role: appUsers.role,
+      active: appUsers.active,
+    }).from(appUsers).where(eq(appUsers.empresaId, empresa.id)).orderBy(appUsers.name),
+  })));
 }
 
 export async function createEmpresa(
