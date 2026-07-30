@@ -153,6 +153,10 @@ export const appRouter = router({
       }),
   }),
   empresas: router({
+    painel: platformAdminProcedure.query(async () => ({
+      empresas: await listEmpresas(),
+      solicitacoes: await listSolicitacoesCadastro(),
+    })),
     listar: platformAdminProcedure.query(() => listEmpresas()),
     criar: platformAdminProcedure.input(z.object({
       nome: z.string().min(2).max(120),
