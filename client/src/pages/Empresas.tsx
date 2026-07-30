@@ -6,13 +6,80 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, LogOut, Plus, RefreshCw } from "lucide-react";
+import { Building2, LogOut, Plus, Save, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 const dataInput = (value: Date | string | null) => {
   if (!value) return "";
   return new Date(value).toISOString().slice(0, 10);
 };
+
+type EmpresaPainel = NonNullable<ReturnType<typeof trpc.empresas.listar.useQuery>["data"]>[number];
+
+function EmpresaCard({
+  empresa,
+  salvando,
+  onSalvar,
+}: {
+  empresa: EmpresaPainel;
+  salvando: boolean;
+  onSalvar: (dados: {
+    id: number;
+    plano: EmpresaPainel["plano"];
+    assinaturaStatus: EmpresaPainel["assinaturaStatus"];
+    valorMensalidade: number;
+    testeAte: string | null;
+    assinaturaAte: string | null;
+  }) => void;
+}) {
+  const [plano, setPlano] = useState(empresa.plano);
+  const [situacao, setSituacao] = useState(empresa.assinaturaStatus);
+  const [mensalidade, setMensalidade] = useState(empresa.valorMensalidade);
+  const [testeAte, setTesteAte] = useState(dataInput(empresa.testeAte));
+  const [assinaturaAte, setAssinaturaAte] = useState(dataInput(empresa.assinaturaAte));
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-[#2D5016]/10 p-3 text-[#2D5016]"><Building2 /></div>
+          <div><h2 className="text-lg font-bold">{empresa.nome}</h2><p className="text-sm text-muted-foreground">#{empresa.id} · {empresa.slug}</p></div>
+        </div>
+        <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:max-w-4xl lg:grid-cols-5">
+          <div><Label>Plano</Label><Select value={plano} onValueChange={v => setPlano(v as typeof plano)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="basico">Básico</SelectItem><SelectItem value="profissional">Profissional</SelectItem><SelectItem value="premium">Premium</SelectItem></SelectContent></Select></div>
+          <div><Label>Situação</Label><Select value={situacao} onValueChange={v => setSituacao(v as typeof situacao)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="teste">Em teste</SelectItem><SelectItem value="ativa">Ativa</SelectItem><SelectItem value="atrasada">Atrasada</SelectItem><SelectItem value="suspensa">Suspensa</SelectItem></SelectContent></Select></div>
+          <div><Label>Mensalidade (R$)</Label><Input className="mt-1" type="number" min={0} step={1} value={mensalidade} onChange={e => setMensalidade(Number(e.target.value))} /></div>
+          <div><Label>Teste até</Label><Input className="mt-1" type="date" value={testeAte} onChange={e => setTesteAte(e.target.value)} /></div>
+          <div><Label>Assinatura até</Label><Input className="mt-1" type="date" value={assinaturaAte} onChange={e => setAssinaturaAte(e.target.value)} /></div>
+        </div>
+      </div>
+      <div className="mt-4 flex justify-end">
+        <Button className="bg-[#2D5016]" disabled={salvando} onClick={() => onSalvar({
+          id: empresa.id,
+          plano,
+          assinaturaStatus: situacao,
+          valorMensalidade: mensalidade,
+          testeAte: testeAte || null,
+          assinaturaAte: assinaturaAte || null,
+        })}>
+          <Save size={16} className="mr-2" />{salvando ? "Salvando..." : "Salvar"}
+        </Button>
+      </div>
+      <div className="mt-5 border-t pt-4">
+        <p className="mb-2 text-sm font-bold text-[#2D5016]">Contas vinculadas</p>
+        <div className="grid gap-2 md:grid-cols-2">
+          {empresa.contas.map(conta => (
+            <div key={conta.id} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
+              <div className="flex items-center gap-2"><UserRound size={16} /><span><strong>{conta.name}</strong> · @{conta.username}</span></div>
+              <span className={conta.active ? "text-green-700" : "text-red-600"}>{conta.role === "admin" ? "Administrador" : "Usuário"} · {conta.active ? "Ativa" : "Inativa"}</span>
+            </div>
+          ))}
+          {empresa.contas.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada.</p>}
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export default function Empresas() {
   const { logout } = useAuth();
@@ -56,12 +123,7 @@ export default function Empresas() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Administração da plataforma</p>
             <h1 className="mt-1 text-3xl font-bold text-[#2D5016]">Estabelecimentos e assinaturas</h1>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={async () => { await empresas.refetch(); toast.success("Lista atualizada"); }}>
-              <RefreshCw size={17} className={`mr-2 ${empresas.isFetching ? "animate-spin" : ""}`} />Atualizar
-            </Button>
-            <Button variant="outline" onClick={() => logout()}><LogOut size={17} className="mr-2" />Sair</Button>
-          </div>
+          <Button variant="outline" onClick={() => logout()}><LogOut size={17} className="mr-2" />Sair</Button>
         </div>
 
         <Card className="p-5 md:p-6">
@@ -86,23 +148,10 @@ export default function Empresas() {
         </Card>
 
         <div className="mt-7 grid gap-4">
-          {empresas.data?.map(empresa => (
-            <Card key={empresa.id} className="p-5">
-              <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-[#2D5016]/10 p-3 text-[#2D5016]"><Building2 /></div>
-                  <div><h2 className="text-lg font-bold">{empresa.nome}</h2><p className="text-sm text-muted-foreground">#{empresa.id} · {empresa.slug}</p></div>
-                </div>
-                <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:max-w-4xl lg:grid-cols-5">
-                  <div><Label>Plano</Label><Select value={empresa.plano} onValueChange={plano => atualizar.mutate({ id: empresa.id, plano: plano as typeof empresa.plano })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="basico">Básico</SelectItem><SelectItem value="profissional">Profissional</SelectItem><SelectItem value="premium">Premium</SelectItem></SelectContent></Select></div>
-                  <div><Label>Situação</Label><Select value={empresa.assinaturaStatus} onValueChange={assinaturaStatus => atualizar.mutate({ id: empresa.id, assinaturaStatus: assinaturaStatus as typeof empresa.assinaturaStatus })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="teste">Em teste</SelectItem><SelectItem value="ativa">Ativa</SelectItem><SelectItem value="atrasada">Atrasada</SelectItem><SelectItem value="suspensa">Suspensa</SelectItem></SelectContent></Select></div>
-                  <div><Label>Mensalidade (R$)</Label><Input className="mt-1" type="number" min={0} step={1} defaultValue={empresa.valorMensalidade} onBlur={e => atualizar.mutate({ id: empresa.id, valorMensalidade: Number(e.target.value) })} /></div>
-                  <div><Label>Teste até</Label><Input className="mt-1" type="date" defaultValue={dataInput(empresa.testeAte)} onBlur={e => atualizar.mutate({ id: empresa.id, testeAte: e.target.value || null })} /></div>
-                  <div><Label>Assinatura até</Label><Input className="mt-1" type="date" defaultValue={dataInput(empresa.assinaturaAte)} onBlur={e => atualizar.mutate({ id: empresa.id, assinaturaAte: e.target.value || null })} /></div>
-                </div>
-              </div>
-            </Card>
-          ))}
+          {empresas.isLoading && <Card className="p-8 text-center text-muted-foreground">Carregando estabelecimentos e contas...</Card>}
+          {empresas.isError && <Card className="border-red-200 bg-red-50 p-8 text-center text-red-700">Não foi possível carregar as contas: {empresas.error.message}</Card>}
+          {empresas.data?.map(empresa => <EmpresaCard key={empresa.id} empresa={empresa} salvando={atualizar.isPending} onSalvar={dados => atualizar.mutate(dados)} />)}
+          {empresas.data?.length === 0 && <Card className="p-8 text-center text-muted-foreground">Nenhum estabelecimento cadastrado.</Card>}
         </div>
       </div>
     </main>
