@@ -41,6 +41,22 @@ export const empresas = mysqlTable("empresas", {
 export type Empresa = typeof empresas.$inferSelect;
 export type InsertEmpresa = typeof empresas.$inferInsert;
 
+export const solicitacoesCadastro = mysqlTable("solicitacoesCadastro", {
+  id: int("id").autoincrement().primaryKey(),
+  estabelecimento: varchar("estabelecimento", { length: 120 }).notNull(),
+  responsavel: varchar("responsavel", { length: 100 }).notNull(),
+  telefone: varchar("telefone", { length: 30 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  username: varchar("username", { length: 50 }).notNull(),
+  passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+  status: mysqlEnum("status", ["pendente", "aprovada", "recusada"]).default("pendente").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SolicitacaoCadastro = typeof solicitacoesCadastro.$inferSelect;
+export type InsertSolicitacaoCadastro = typeof solicitacoesCadastro.$inferInsert;
+
 export const appUsers = mysqlTable("appUsers", {
   id: int("id").autoincrement().primaryKey(),
   empresaId: int("empresaId").default(1).notNull(),

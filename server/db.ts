@@ -1,6 +1,6 @@
 import { eq, and, desc, gte, lt, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, empresas, InsertEmpresa, appUsers, InsertAppUser, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
+import { InsertUser, users, empresas, InsertEmpresa, solicitacoesCadastro, InsertSolicitacaoCadastro, appUsers, InsertAppUser, pedidos, itensPedido, Pedido, InsertPedido, ItemPedido, InsertItemPedido, fechamentoCaixa, FechamentoCaixa, InsertFechamentoCaixa } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -173,6 +173,45 @@ export async function updateEmpresa(
   if (!db) throw new Error("Banco de dados indisponível");
   await db.update(empresas).set(data).where(eq(empresas.id, id));
   return getEmpresaById(id);
+}
+
+export async function createSolicitacaoCadastro(data: InsertSolicitacaoCadastro) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  const existente = await db.select({ id: solicitacoesCadastro.id })
+    .from(solicitacoesCadastro)
+    .where(and(eq(solicitacoesCadastro.username, data.username.toLowerCase()), eq(solicitacoesCadastro.status, "pendente")))
+    .limit(1);
+  if (existente.length) throw new Error("Já existe uma solicitação pendente para este usuário");
+  const result = await db.insert(solicitacoesCadastro).values({ ...data, username: data.username.toLowerCase() });
+  return (result as any)[0].insertId as number;
+}
+
+export async function listSolicitacoesCadastro() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: solicitacoesCadastro.id,
+    estabelecimento: solicitacoesCadastro.estabelecimento,
+    responsavel: solicitacoesCadastro.responsavel,
+    telefone: solicitacoesCadastro.telefone,
+    email: solicitacoesCadastro.email,
+    username: solicitacoesCadastro.username,
+    status: solicitacoesCadastro.status,
+    createdAt: solicitacoesCadastro.createdAt,
+  }).from(solicitacoesCadastro).orderBy(desc(solicitacoesCadastro.createdAt));
+}
+
+export async function getSolicitacaoCadastro(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select().from(solicitacoesCadastro).where(eq(solicitacoesCadastro.id, id)).limit(1))[0];
+}
+
+export async function finalizarSolicitacaoCadastro(id: number, status: "aprovada" | "recusada") {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível");
+  await db.update(solicitacoesCadastro).set({ status }).where(eq(solicitacoesCadastro.id, id));
 }
 
 export async function listAppUsers(empresaId: number) {
