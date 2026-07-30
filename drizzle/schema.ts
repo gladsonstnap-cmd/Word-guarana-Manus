@@ -31,6 +31,7 @@ export const empresas = mysqlTable("empresas", {
   slug: varchar("slug", { length: 80 }).notNull().unique(),
   plano: mysqlEnum("plano", ["basico", "profissional", "premium"]).default("basico").notNull(),
   assinaturaStatus: mysqlEnum("assinaturaStatus", ["teste", "ativa", "atrasada", "suspensa"]).default("teste").notNull(),
+  valorMensalidade: int("valorMensalidade").default(0).notNull(),
   testeAte: timestamp("testeAte"),
   assinaturaAte: timestamp("assinaturaAte"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

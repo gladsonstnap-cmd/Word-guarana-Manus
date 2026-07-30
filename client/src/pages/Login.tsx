@@ -15,6 +15,16 @@ export default function Login({ plataforma = false }: { plataforma?: boolean }) 
     onSuccess: async result => {
       setSessionToken(result.token);
       utils.auth.me.setData(undefined, result.user);
+      const vencimento = result.user.assinaturaStatus === "teste" ? result.user.testeAte : result.user.assinaturaAte;
+      if (!plataforma && vencimento) {
+        toast.info(
+          `${result.user.assinaturaStatus === "teste" ? "Teste válido" : "Assinatura válida"} até ${new Date(vencimento).toLocaleDateString("pt-BR")}${
+            result.user.valorMensalidade > 0
+              ? ` · Mensalidade: ${result.user.valorMensalidade.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
+              : ""
+          }`
+        );
+      }
       await utils.auth.me.invalidate();
     },
     onError: error => toast.error(error.message),

@@ -514,6 +514,13 @@ export default function Home() {
             <LogOut size={16} /> Sair
           </Button>
         </div>
+        {(user?.assinaturaAte || user?.testeAte) && (
+          <div className="mb-5 rounded-xl border border-[#F4A460]/60 bg-[#FFF8ED] px-4 py-3 text-sm text-[#6B4A1E]">
+            <strong>{user.assinaturaStatus === "teste" ? "Período de teste" : "Assinatura"}:</strong>{" "}
+            válido até {new Date(user.assinaturaStatus === "teste" ? user.testeAte! : user.assinaturaAte!).toLocaleDateString("pt-BR")}
+            {user.valorMensalidade > 0 ? ` · Mensalidade: ${user.valorMensalidade.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Formulário - Coluna Principal */}
           <div className="lg:col-span-2">

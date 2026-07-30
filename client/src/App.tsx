@@ -76,11 +76,11 @@ function App() {
   const prazoExpirado =
     (user.assinaturaStatus === "teste" && user.testeAte && new Date(user.testeAte) < agora) ||
     (user.assinaturaStatus === "ativa" && user.assinaturaAte && new Date(user.assinaturaAte) < agora);
-  if (!user.platformAdmin && (
+  if (
     user.assinaturaStatus === "atrasada" ||
     user.assinaturaStatus === "suspensa" ||
     prazoExpirado
-  )) {
+  ) {
     return (
       <div className="min-h-screen grid place-items-center bg-[#F7FAF5] p-4">
         <div className="max-w-md rounded-2xl border bg-white p-8 text-center shadow-lg">
