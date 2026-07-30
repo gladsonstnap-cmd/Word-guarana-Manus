@@ -157,7 +157,7 @@ export async function createEmpresa(
 
 export async function updateEmpresa(
   id: number,
-  data: Partial<Pick<InsertEmpresa, "nome" | "plano" | "assinaturaStatus" | "testeAte" | "assinaturaAte">>
+  data: Partial<Pick<InsertEmpresa, "nome" | "plano" | "assinaturaStatus" | "valorMensalidade" | "testeAte" | "assinaturaAte">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("Banco de dados indisponível");

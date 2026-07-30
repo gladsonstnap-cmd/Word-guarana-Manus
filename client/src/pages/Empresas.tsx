@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, LogOut, Plus } from "lucide-react";
+import { Building2, LogOut, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 const dataInput = (value: Date | string | null) => {
@@ -21,6 +21,7 @@ export default function Empresas() {
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
   const [plano, setPlano] = useState<"basico" | "profissional" | "premium">("basico");
+  const [valorMensalidade, setValorMensalidade] = useState(0);
   const [diasTeste, setDiasTeste] = useState(7);
   const [adminNome, setAdminNome] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
@@ -28,7 +29,7 @@ export default function Empresas() {
 
   const criar = trpc.empresas.criar.useMutation({
     onSuccess: async () => {
-      setNome(""); setSlug(""); setPlano("basico"); setDiasTeste(7);
+      setNome(""); setSlug(""); setPlano("basico"); setValorMensalidade(0); setDiasTeste(7);
       setAdminNome(""); setAdminUsername(""); setAdminPassword("");
       await utils.empresas.listar.invalidate();
       toast.success("Estabelecimento criado");
@@ -55,7 +56,12 @@ export default function Empresas() {
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Administração da plataforma</p>
             <h1 className="mt-1 text-3xl font-bold text-[#2D5016]">Estabelecimentos e assinaturas</h1>
           </div>
-          <Button variant="outline" onClick={() => logout()}><LogOut size={17} className="mr-2" />Sair</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={async () => { await empresas.refetch(); toast.success("Lista atualizada"); }}>
+              <RefreshCw size={17} className={`mr-2 ${empresas.isFetching ? "animate-spin" : ""}`} />Atualizar
+            </Button>
+            <Button variant="outline" onClick={() => logout()}><LogOut size={17} className="mr-2" />Sair</Button>
+          </div>
         </div>
 
         <Card className="p-5 md:p-6">
@@ -64,6 +70,7 @@ export default function Empresas() {
             <div><Label>Nome do estabelecimento</Label><Input className="mt-2" value={nome} onChange={e => { setNome(e.target.value); if (!slug) setSlug(gerarSlug(e.target.value)); }} /></div>
             <div><Label>Identificador</Label><Input className="mt-2" value={slug} onChange={e => setSlug(gerarSlug(e.target.value))} placeholder="nome-da-loja" /></div>
             <div><Label>Plano</Label><Select value={plano} onValueChange={v => setPlano(v as typeof plano)}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="basico">Básico</SelectItem><SelectItem value="profissional">Profissional</SelectItem><SelectItem value="premium">Premium</SelectItem></SelectContent></Select></div>
+            <div><Label>Mensalidade (R$)</Label><Input className="mt-2" type="number" min={0} step={1} value={valorMensalidade} onChange={e => setValorMensalidade(Number(e.target.value))} /></div>
             <div><Label>Dias de teste</Label><Input className="mt-2" type="number" min={0} max={90} value={diasTeste} onChange={e => setDiasTeste(Number(e.target.value))} /></div>
             <div><Label>Nome do administrador</Label><Input className="mt-2" value={adminNome} onChange={e => setAdminNome(e.target.value)} /></div>
             <div><Label>Usuário do administrador</Label><Input className="mt-2" value={adminUsername} onChange={e => setAdminUsername(e.target.value)} /></div>
@@ -72,7 +79,7 @@ export default function Empresas() {
           <Button
             className="mt-5 bg-[#2D5016]"
             disabled={criar.isPending || nome.length < 2 || slug.length < 2 || adminNome.length < 2 || adminUsername.length < 3 || adminPassword.length < 6}
-            onClick={() => criar.mutate({ nome, slug, plano, diasTeste, adminNome, adminUsername, adminPassword })}
+            onClick={() => criar.mutate({ nome, slug, plano, valorMensalidade, diasTeste, adminNome, adminUsername, adminPassword })}
           >
             {criar.isPending ? "Criando..." : "Cadastrar estabelecimento"}
           </Button>
@@ -86,9 +93,10 @@ export default function Empresas() {
                   <div className="rounded-xl bg-[#2D5016]/10 p-3 text-[#2D5016]"><Building2 /></div>
                   <div><h2 className="text-lg font-bold">{empresa.nome}</h2><p className="text-sm text-muted-foreground">#{empresa.id} · {empresa.slug}</p></div>
                 </div>
-                <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:max-w-3xl lg:grid-cols-4">
+                <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:max-w-4xl lg:grid-cols-5">
                   <div><Label>Plano</Label><Select value={empresa.plano} onValueChange={plano => atualizar.mutate({ id: empresa.id, plano: plano as typeof empresa.plano })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="basico">Básico</SelectItem><SelectItem value="profissional">Profissional</SelectItem><SelectItem value="premium">Premium</SelectItem></SelectContent></Select></div>
                   <div><Label>Situação</Label><Select value={empresa.assinaturaStatus} onValueChange={assinaturaStatus => atualizar.mutate({ id: empresa.id, assinaturaStatus: assinaturaStatus as typeof empresa.assinaturaStatus })}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="teste">Em teste</SelectItem><SelectItem value="ativa">Ativa</SelectItem><SelectItem value="atrasada">Atrasada</SelectItem><SelectItem value="suspensa">Suspensa</SelectItem></SelectContent></Select></div>
+                  <div><Label>Mensalidade (R$)</Label><Input className="mt-1" type="number" min={0} step={1} defaultValue={empresa.valorMensalidade} onBlur={e => atualizar.mutate({ id: empresa.id, valorMensalidade: Number(e.target.value) })} /></div>
                   <div><Label>Teste até</Label><Input className="mt-1" type="date" defaultValue={dataInput(empresa.testeAte)} onBlur={e => atualizar.mutate({ id: empresa.id, testeAte: e.target.value || null })} /></div>
                   <div><Label>Assinatura até</Label><Input className="mt-1" type="date" defaultValue={dataInput(empresa.assinaturaAte)} onBlur={e => atualizar.mutate({ id: empresa.id, assinaturaAte: e.target.value || null })} /></div>
                 </div>

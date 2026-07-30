@@ -12,7 +12,7 @@ export const publicProcedure = t.procedure;
 
 const subscriptionBlocked = (ctx: TrpcContext) => {
   const agora = new Date();
-  return !!ctx.user && !ctx.user.platformAdmin && (
+  return !!ctx.user && (
     !ctx.empresa ||
     ctx.empresa.assinaturaStatus === "atrasada" ||
     ctx.empresa.assinaturaStatus === "suspensa" ||
