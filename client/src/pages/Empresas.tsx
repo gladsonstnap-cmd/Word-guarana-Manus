@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, Building2, Check, LogOut, Plus, Save, UserRound, X } from "lucide-react";
+import { Bell, Building2, Check, LogOut, Plus, RefreshCw, Save, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 
 const dataInput = (value: Date | string | null) => {
@@ -131,11 +131,23 @@ function EmpresaCard({
 export default function Empresas() {
   const { logout } = useAuth();
   const utils = trpc.useUtils();
-  const empresas = trpc.empresas.listar.useQuery();
-  const solicitacoes = trpc.cadastro.listar.useQuery(undefined, {
+  const painel = trpc.empresas.painel.useQuery(undefined, {
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
+  const empresas = {
+    data: painel.data?.empresas,
+    isLoading: painel.isLoading,
+    isError: painel.isError,
+    error: painel.error,
+  };
+  const solicitacoes = {
+    data: painel.data?.solicitacoes,
+    isLoading: painel.isLoading,
+    isError: painel.isError,
+    error: painel.error,
+  };
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
   const [plano, setPlano] = useState<"basico" | "profissional" | "premium">("basico");
@@ -149,28 +161,28 @@ export default function Empresas() {
     onSuccess: async () => {
       setNome(""); setSlug(""); setPlano("basico"); setValorMensalidade(0); setDiasTeste(7);
       setAdminNome(""); setAdminUsername(""); setAdminPassword("");
-      await utils.empresas.listar.invalidate();
+      await utils.empresas.painel.invalidate();
       toast.success("Estabelecimento criado");
     },
     onError: error => toast.error(error.message),
   });
   const atualizar = trpc.empresas.atualizar.useMutation({
     onSuccess: async () => {
-      await utils.empresas.listar.invalidate();
+      await utils.empresas.painel.invalidate();
       toast.success("Assinatura atualizada");
     },
     onError: error => toast.error(error.message),
   });
   const aprovar = trpc.cadastro.aprovar.useMutation({
     onSuccess: async () => {
-      await Promise.all([utils.cadastro.listar.invalidate(), utils.empresas.listar.invalidate()]);
+      await utils.empresas.painel.invalidate();
       toast.success("Cliente aprovado e cadastrado");
     },
     onError: error => toast.error(error.message),
   });
   const recusar = trpc.cadastro.recusar.useMutation({
     onSuccess: async () => {
-      await utils.cadastro.listar.invalidate();
+      await utils.empresas.painel.invalidate();
       toast.success("Solicitação recusada");
     },
     onError: error => toast.error(error.message),
@@ -188,7 +200,12 @@ export default function Empresas() {
               {pendentes.length > 0 && <span className="flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-sm text-white"><Bell size={15} />{pendentes.length}</span>}
             </h1>
           </div>
-          <Button variant="outline" onClick={() => logout()}><LogOut size={17} className="mr-2" />Sair</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={async () => { await painel.refetch(); toast.success("Solicitações atualizadas"); }}>
+              <RefreshCw size={17} className={`mr-2 ${painel.isFetching ? "animate-spin" : ""}`} />Buscar solicitações
+            </Button>
+            <Button variant="outline" onClick={() => logout()}><LogOut size={17} className="mr-2" />Sair</Button>
+          </div>
         </div>
 
         <section className="mb-7">
