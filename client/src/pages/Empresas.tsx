@@ -156,6 +156,11 @@ export default function Empresas() {
   const [adminNome, setAdminNome] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [protocoloBusca, setProtocoloBusca] = useState("");
+  const localizar = trpc.cadastro.obter.useQuery(
+    { id: Number(protocoloBusca) || 0 },
+    { enabled: false, retry: false }
+  );
 
   const criar = trpc.empresas.criar.useMutation({
     onSuccess: async () => {
@@ -187,7 +192,11 @@ export default function Empresas() {
     },
     onError: error => toast.error(error.message),
   });
-  const pendentes = solicitacoes.data?.filter(item => item.status === "pendente") ?? [];
+  const pendentesDaLista = solicitacoes.data?.filter(item => item.status === "pendente") ?? [];
+  const localizada = localizar.data?.status === "pendente" ? localizar.data : null;
+  const pendentes = localizada && !pendentesDaLista.some(item => item.id === localizada.id)
+    ? [localizada, ...pendentesDaLista]
+    : pendentesDaLista;
 
   return (
     <main className="min-h-screen bg-[#F7FAF5] p-4 md:p-8">
@@ -210,6 +219,21 @@ export default function Empresas() {
 
         <section className="mb-7">
           <h2 className="mb-3 flex items-center gap-2 text-xl font-bold text-[#2D5016]"><Bell size={20} />Solicitações de primeiro acesso</h2>
+          <Card className="mb-3 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <Label>Localizar pelo protocolo</Label>
+                <Input className="mt-1" type="number" min={1} placeholder="Ex.: 1" value={protocoloBusca} onChange={e => setProtocoloBusca(e.target.value)} />
+              </div>
+              <Button variant="outline" disabled={!Number(protocoloBusca) || localizar.isFetching} onClick={() => localizar.refetch()}>
+                {localizar.isFetching ? "Localizando..." : "Localizar protocolo"}
+              </Button>
+            </div>
+            {localizar.isError && <p className="mt-2 text-sm text-red-600">{localizar.error.message}</p>}
+            {localizar.data && localizar.data.status !== "pendente" && (
+              <p className="mt-2 text-sm text-muted-foreground">O protocolo #{localizar.data.id} está com situação: {localizar.data.status}.</p>
+            )}
+          </Card>
           <div className="grid gap-3">
             {solicitacoes.isLoading && <Card className="p-5 text-muted-foreground">Verificando novas solicitações...</Card>}
             {solicitacoes.isError && <Card className="border-red-200 bg-red-50 p-5 text-red-700">Erro ao carregar solicitações: {solicitacoes.error.message}</Card>}
