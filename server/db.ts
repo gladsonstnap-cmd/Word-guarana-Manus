@@ -208,6 +208,21 @@ export async function getSolicitacaoCadastro(id: number) {
   return (await db.select().from(solicitacoesCadastro).where(eq(solicitacoesCadastro.id, id)).limit(1))[0];
 }
 
+export async function getSolicitacaoCadastroByUsername(username: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  return (await db.select({
+    id: solicitacoesCadastro.id,
+    estabelecimento: solicitacoesCadastro.estabelecimento,
+    username: solicitacoesCadastro.username,
+    status: solicitacoesCadastro.status,
+    createdAt: solicitacoesCadastro.createdAt,
+  }).from(solicitacoesCadastro)
+    .where(eq(solicitacoesCadastro.username, username.toLowerCase()))
+    .orderBy(desc(solicitacoesCadastro.createdAt))
+    .limit(1))[0];
+}
+
 export async function finalizarSolicitacaoCadastro(id: number, status: "aprovada" | "recusada") {
   const db = await getDb();
   if (!db) throw new Error("Banco de dados indisponível");
