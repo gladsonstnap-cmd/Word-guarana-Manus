@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, platformAdminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser, ensureDefaultEmpresa, ensurePlatformAdmin, getEmpresaById, listEmpresas, createEmpresa, updateEmpresa } from "./db";
+import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser, ensureDefaultEmpresa, ensurePlatformAdmin, getEmpresaById, listEmpresas, createEmpresa, updateEmpresa, createSolicitacaoCadastro, listSolicitacoesCadastro, getSolicitacaoCadastro, finalizarSolicitacaoCadastro } from "./db";
 import { storagePut } from "./storage";
 import { ENV } from "./_core/env";
 import { createLocalSession, hashPassword, verifyPassword } from "./localAuth";
@@ -83,6 +83,74 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+  }),
+  cadastro: router({
+    solicitar: publicProcedure.input(z.object({
+      estabelecimento: z.string().min(2).max(120),
+      responsavel: z.string().min(2).max(100),
+      telefone: z.string().min(8).max(30),
+      email: z.string().email().max(320).optional().or(z.literal("")),
+      username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/, "Nome de usuário inválido"),
+      password: z.string().min(6).max(200),
+    })).mutation(async ({ input }) => {
+      if (await getAppUserByUsername(input.username)) {
+        throw new TRPCError({ code: "CONFLICT", message: "Nome de usuário já existe" });
+      }
+      try {
+        const id = await createSolicitacaoCadastro({
+          estabelecimento: input.estabelecimento,
+          responsavel: input.responsavel,
+          telefone: input.telefone,
+          email: input.email || null,
+          username: input.username,
+          passwordHash: await hashPassword(input.password),
+          status: "pendente",
+        });
+        return { id, success: true };
+      } catch (error) {
+        throw new TRPCError({ code: "CONFLICT", message: error instanceof Error ? error.message : "Não foi possível enviar a solicitação" });
+      }
+    }),
+    listar: platformAdminProcedure.query(() => listSolicitacoesCadastro()),
+    aprovar: platformAdminProcedure.input(z.object({
+      id: z.number().int().positive(),
+      slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, "Identificador inválido"),
+      plano: z.enum(["basico", "profissional", "premium"]),
+      valorMensalidade: z.number().int().min(0).max(100000),
+      diasTeste: z.number().int().min(0).max(90),
+      assinaturaAte: z.string().nullable().optional(),
+    })).mutation(async ({ input }) => {
+      const solicitacao = await getSolicitacaoCadastro(input.id);
+      if (!solicitacao || solicitacao.status !== "pendente") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Solicitação pendente não encontrada" });
+      }
+      if (await getAppUserByUsername(solicitacao.username)) {
+        throw new TRPCError({ code: "CONFLICT", message: "Nome de usuário já cadastrado" });
+      }
+      const testeAte = new Date();
+      testeAte.setDate(testeAte.getDate() + input.diasTeste);
+      const assinaturaAte = input.assinaturaAte ? new Date(`${input.assinaturaAte}T23:59:59`) : null;
+      const empresa = await createEmpresa({
+        nome: solicitacao.estabelecimento,
+        slug: input.slug,
+        plano: input.plano,
+        valorMensalidade: input.valorMensalidade,
+        assinaturaStatus: input.diasTeste > 0 ? "teste" : assinaturaAte ? "ativa" : "suspensa",
+        testeAte: input.diasTeste > 0 ? testeAte : null,
+        assinaturaAte,
+      }, {
+        name: solicitacao.responsavel,
+        username: solicitacao.username,
+        passwordHash: solicitacao.passwordHash,
+      });
+      await finalizarSolicitacaoCadastro(input.id, "aprovada");
+      return empresa;
+    }),
+    recusar: platformAdminProcedure.input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        await finalizarSolicitacaoCadastro(input.id, "recusada");
+        return { success: true };
+      }),
   }),
   empresas: router({
     listar: platformAdminProcedure.query(() => listEmpresas()),

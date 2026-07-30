@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, LogOut, Plus, Save, UserRound } from "lucide-react";
+import { Bell, Building2, Check, LogOut, Plus, Save, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 
 const dataInput = (value: Date | string | null) => {
@@ -14,7 +14,54 @@ const dataInput = (value: Date | string | null) => {
   return new Date(value).toISOString().slice(0, 10);
 };
 
+const gerarSlug = (texto: string) => texto
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
 type EmpresaPainel = NonNullable<ReturnType<typeof trpc.empresas.listar.useQuery>["data"]>[number];
+type SolicitacaoPainel = NonNullable<ReturnType<typeof trpc.cadastro.listar.useQuery>["data"]>[number];
+
+function SolicitacaoCard({
+  solicitacao,
+  processando,
+  onAprovar,
+  onRecusar,
+}: {
+  solicitacao: SolicitacaoPainel;
+  processando: boolean;
+  onAprovar: (dados: { id: number; slug: string; plano: "basico" | "profissional" | "premium"; valorMensalidade: number; diasTeste: number; assinaturaAte: string | null }) => void;
+  onRecusar: (id: number) => void;
+}) {
+  const [slug, setSlug] = useState(gerarSlug(solicitacao.estabelecimento));
+  const [plano, setPlano] = useState<"basico" | "profissional" | "premium">("basico");
+  const [mensalidade, setMensalidade] = useState(0);
+  const [diasTeste, setDiasTeste] = useState(7);
+  const [assinaturaAte, setAssinaturaAte] = useState("");
+
+  return (
+    <Card className="border-[#F4A460] bg-[#FFF9F0] p-5">
+      <div className="flex flex-col justify-between gap-3 md:flex-row">
+        <div>
+          <h3 className="text-lg font-bold text-[#2D5016]">{solicitacao.estabelecimento}</h3>
+          <p className="text-sm">{solicitacao.responsavel} · @{solicitacao.username}</p>
+          <p className="text-sm text-muted-foreground">{solicitacao.telefone}{solicitacao.email ? ` · ${solicitacao.email}` : ""}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Solicitado em {new Date(solicitacao.createdAt).toLocaleString("pt-BR")}</p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div><Label>Identificador</Label><Input className="mt-1" value={slug} onChange={e => setSlug(gerarSlug(e.target.value))} /></div>
+        <div><Label>Plano</Label><Select value={plano} onValueChange={v => setPlano(v as typeof plano)}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="basico">Básico</SelectItem><SelectItem value="profissional">Profissional</SelectItem><SelectItem value="premium">Premium</SelectItem></SelectContent></Select></div>
+        <div><Label>Mensalidade (R$)</Label><Input className="mt-1" type="number" min={0} value={mensalidade} onChange={e => setMensalidade(Number(e.target.value))} /></div>
+        <div><Label>Dias de teste</Label><Input className="mt-1" type="number" min={0} max={90} value={diasTeste} onChange={e => setDiasTeste(Number(e.target.value))} /></div>
+        <div><Label>Vencimento</Label><Input className="mt-1" type="date" value={assinaturaAte} onChange={e => setAssinaturaAte(e.target.value)} /></div>
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button variant="destructive" disabled={processando} onClick={() => onRecusar(solicitacao.id)}><X size={16} className="mr-2" />Recusar</Button>
+        <Button className="bg-[#2D5016]" disabled={processando || slug.length < 2} onClick={() => onAprovar({ id: solicitacao.id, slug, plano, valorMensalidade: mensalidade, diasTeste, assinaturaAte: assinaturaAte || null })}><Check size={16} className="mr-2" />Aprovar e cadastrar</Button>
+      </div>
+    </Card>
+  );
+}
 
 function EmpresaCard({
   empresa,
@@ -85,6 +132,10 @@ export default function Empresas() {
   const { logout } = useAuth();
   const utils = trpc.useUtils();
   const empresas = trpc.empresas.listar.useQuery();
+  const solicitacoes = trpc.cadastro.listar.useQuery(undefined, {
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+  });
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
   const [plano, setPlano] = useState<"basico" | "profissional" | "premium">("basico");
@@ -110,10 +161,21 @@ export default function Empresas() {
     },
     onError: error => toast.error(error.message),
   });
-
-  const gerarSlug = (texto: string) => texto
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const aprovar = trpc.cadastro.aprovar.useMutation({
+    onSuccess: async () => {
+      await Promise.all([utils.cadastro.listar.invalidate(), utils.empresas.listar.invalidate()]);
+      toast.success("Cliente aprovado e cadastrado");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const recusar = trpc.cadastro.recusar.useMutation({
+    onSuccess: async () => {
+      await utils.cadastro.listar.invalidate();
+      toast.success("Solicitação recusada");
+    },
+    onError: error => toast.error(error.message),
+  });
+  const pendentes = solicitacoes.data?.filter(item => item.status === "pendente") ?? [];
 
   return (
     <main className="min-h-screen bg-[#F7FAF5] p-4 md:p-8">
@@ -121,10 +183,23 @@ export default function Empresas() {
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#C85A54]">Administração da plataforma</p>
-            <h1 className="mt-1 text-3xl font-bold text-[#2D5016]">Estabelecimentos e assinaturas</h1>
+            <h1 className="mt-1 flex items-center gap-3 text-3xl font-bold text-[#2D5016]">
+              Estabelecimentos e assinaturas
+              {pendentes.length > 0 && <span className="flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-sm text-white"><Bell size={15} />{pendentes.length}</span>}
+            </h1>
           </div>
           <Button variant="outline" onClick={() => logout()}><LogOut size={17} className="mr-2" />Sair</Button>
         </div>
+
+        <section className="mb-7">
+          <h2 className="mb-3 flex items-center gap-2 text-xl font-bold text-[#2D5016]"><Bell size={20} />Solicitações de primeiro acesso</h2>
+          <div className="grid gap-3">
+            {solicitacoes.isLoading && <Card className="p-5 text-muted-foreground">Verificando novas solicitações...</Card>}
+            {solicitacoes.isError && <Card className="border-red-200 bg-red-50 p-5 text-red-700">Erro ao carregar solicitações: {solicitacoes.error.message}</Card>}
+            {pendentes.map(solicitacao => <SolicitacaoCard key={solicitacao.id} solicitacao={solicitacao} processando={aprovar.isPending || recusar.isPending} onAprovar={dados => aprovar.mutate(dados)} onRecusar={id => recusar.mutate({ id })} />)}
+            {!solicitacoes.isLoading && pendentes.length === 0 && <Card className="p-5 text-sm text-muted-foreground">Nenhuma solicitação pendente.</Card>}
+          </div>
+        </section>
 
         <Card className="p-5 md:p-6">
           <h2 className="flex items-center gap-2 text-xl font-bold text-[#2D5016]"><Plus size={20} />Novo estabelecimento</h2>
