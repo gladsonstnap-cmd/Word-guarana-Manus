@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, platformAdminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser, ensureDefaultEmpresa, ensurePlatformAdmin, getEmpresaById, listEmpresas, createEmpresa, updateEmpresa, createSolicitacaoCadastro, listSolicitacoesCadastro, getSolicitacaoCadastro, finalizarSolicitacaoCadastro } from "./db";
+import { criarPedido, listarPedidos, obterPedido, atualizarStatusPedido, deletarPedido, atualizarImagemPedido, obterPedidosPorData, criarFechamentoCaixa, obterFechamentoPorData, listarFechamentos, obterPedidosFechadosPorData, countAppUsers, createAppUser, getAppUserByUsername, listAppUsers, updateAppUser, deleteCommonAppUser, ensureDefaultEmpresa, ensurePlatformAdmin, getEmpresaById, listEmpresas, createEmpresa, updateEmpresa, createSolicitacaoCadastro, listSolicitacoesCadastro, getSolicitacaoCadastro, getSolicitacaoCadastroByUsername, finalizarSolicitacaoCadastro } from "./db";
 import { storagePut } from "./storage";
 import { ENV } from "./_core/env";
 import { createLocalSession, hashPassword, verifyPassword } from "./localAuth";
@@ -85,6 +85,15 @@ export const appRouter = router({
     }),
   }),
   cadastro: router({
+    consultar: publicProcedure.input(z.object({
+      username: z.string().min(3).max(50),
+    })).query(async ({ input }) => {
+      const conta = await getAppUserByUsername(input.username);
+      if (conta) return { status: "cadastrada" as const, id: null, estabelecimento: null, createdAt: conta.createdAt };
+      const solicitacao = await getSolicitacaoCadastroByUsername(input.username);
+      if (!solicitacao) return { status: "nao_encontrada" as const, id: null, estabelecimento: null, createdAt: null };
+      return solicitacao;
+    }),
     solicitar: publicProcedure.input(z.object({
       estabelecimento: z.string().min(2).max(120),
       responsavel: z.string().min(2).max(100),

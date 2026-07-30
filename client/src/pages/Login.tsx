@@ -15,7 +15,12 @@ export default function Login({ plataforma = false }: { plataforma?: boolean }) 
   const [responsavel, setResponsavel] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
+  const [protocolo, setProtocolo] = useState<number | null>(null);
   const utils = trpc.useUtils();
+  const consultar = trpc.cadastro.consultar.useQuery(
+    { username: username.trim() },
+    { enabled: false, retry: false }
+  );
   const login = trpc.auth.login.useMutation({
     onSuccess: async result => {
       setSessionToken(result.token);
@@ -35,10 +40,9 @@ export default function Login({ plataforma = false }: { plataforma?: boolean }) 
     onError: error => toast.error(error.message),
   });
   const solicitar = trpc.cadastro.solicitar.useMutation({
-    onSuccess: () => {
-      toast.success("Solicitação enviada. Aguarde a aprovação para entrar.");
-      setPrimeiroAcesso(false);
-      setEstabelecimento(""); setResponsavel(""); setTelefone(""); setEmail(""); setPassword("");
+    onSuccess: result => {
+      setProtocolo(result.id);
+      toast.success("Solicitação enviada com sucesso.");
     },
     onError: error => toast.error(error.message),
   });
@@ -59,6 +63,14 @@ export default function Login({ plataforma = false }: { plataforma?: boolean }) 
           </p>
         </div>
         {primeiroAcesso && !plataforma ? (
+          protocolo ? (
+            <div className="rounded-xl border border-green-300 bg-green-50 p-6 text-center">
+              <h2 className="text-xl font-bold text-green-800">Solicitação enviada</h2>
+              <p className="mt-2 text-green-700">Protocolo #{protocolo}</p>
+              <p className="mt-3 text-sm text-muted-foreground">Seu acesso está aguardando aprovação. Depois de aprovado, entre usando o usuário e a senha que você criou.</p>
+              <Button className="mt-5 bg-[#2D5016]" onClick={() => { setProtocolo(null); setPrimeiroAcesso(false); }}>Voltar para o login</Button>
+            </div>
+          ) : (
           <form
             className="space-y-5"
             onSubmit={event => {
@@ -77,8 +89,22 @@ export default function Login({ plataforma = false }: { plataforma?: boolean }) 
             <Button type="submit" disabled={solicitar.isPending || estabelecimento.length < 2 || responsavel.length < 2 || telefone.length < 8 || username.length < 3 || password.length < 6} className="w-full bg-[#2D5016]">
               {solicitar.isPending ? "Enviando..." : "Solicitar primeiro acesso"}
             </Button>
+            <Button type="button" variant="outline" className="w-full" disabled={username.trim().length < 3 || consultar.isFetching} onClick={() => consultar.refetch()}>
+              {consultar.isFetching ? "Consultando..." : "Consultar situação pelo usuário"}
+            </Button>
+            {consultar.data && (
+              <div className="rounded-lg border bg-muted/40 p-3 text-center text-sm">
+                {consultar.data.status === "pendente" && `Solicitação #${consultar.data.id} aguardando aprovação.`}
+                {consultar.data.status === "aprovada" && "Solicitação aprovada. Você já pode tentar entrar."}
+                {consultar.data.status === "recusada" && "Solicitação recusada. Entre em contato com o suporte."}
+                {consultar.data.status === "cadastrada" && "A conta já está cadastrada. Volte e faça o login."}
+                {consultar.data.status === "nao_encontrada" && "Nenhuma solicitação encontrada para este usuário."}
+              </div>
+            )}
+            {solicitar.isError && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center text-sm text-red-700">{solicitar.error.message}</div>}
             <Button type="button" variant="ghost" className="w-full" onClick={() => setPrimeiroAcesso(false)}>Voltar para o login</Button>
           </form>
+          )
         ) : (
         <form onSubmit={submit} className="space-y-5">
           <div>
