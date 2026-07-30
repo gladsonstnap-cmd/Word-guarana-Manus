@@ -121,6 +121,16 @@ export const appRouter = router({
       }
     }),
     listar: platformAdminProcedure.query(() => listSolicitacoesCadastro()),
+    obter: platformAdminProcedure.input(z.object({
+      id: z.number().int().positive(),
+    })).query(async ({ input }) => {
+      const solicitacao = await getSolicitacaoCadastro(input.id);
+      if (!solicitacao) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Protocolo não encontrado" });
+      }
+      const { passwordHash: _, ...segura } = solicitacao;
+      return segura;
+    }),
     aprovar: platformAdminProcedure.input(z.object({
       id: z.number().int().positive(),
       slug: z.string().min(2).max(80).regex(/^[a-z0-9-]+$/, "Identificador inválido"),
